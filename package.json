@@ -1,7 +1,7 @@
 {
   "name": "ssb-mobile-bluetooth-manager",
   "version": "1.0.0",
-  "description": "A scuttlebot plugin for managing bluetooth connections over a react native bridge.",
+  "description": "A module for managing bluetooth connections over a react native bridge.",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
