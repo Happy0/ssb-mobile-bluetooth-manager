@@ -1,12 +1,14 @@
 const cat = require('pull-cat');
 const pull = require('pull-stream');
-const WS = require('pull-ws')
+const WS = require('pull-ws');
+var Map = require('pull-stream/throughs/map');
 
 function makeManager () {
 
   function connect(address, cb) {
 
-    var stream = WS.connect("ws://127.0.0.1:5667", {
+    console.log("Attempting outgoing ws connection");
+    var stream = WS.connect("ws://127.0.0.1:5666", {
       onConnect: function (err) {
         //ensure stream is a stream of node buffers
         stream.source = pull(stream.source, Map(Buffer))
@@ -20,7 +22,6 @@ function makeManager () {
         cb(err, stream)
       }
     })
-    stream.address = addr
 
     return function () {
       stream.close(cb)
