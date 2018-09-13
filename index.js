@@ -1,30 +1,40 @@
 const cat = require('pull-cat');
 const pull = require('pull-stream');
-const WS = require('pull-ws');
-var Map = require('pull-stream/throughs/map');
+
+const Pushable = require('pull-pushable');
+
+const WebSocket = require('ws');
 
 function makeManager () {
 
   function connect(address, cb) {
 
     console.log("Attempting outgoing ws connection");
-    var stream = WS.connect("ws://127.0.0.1:5666", {
-      onConnect: function (err) {
-        //ensure stream is a stream of node buffers
-        stream.source = pull(stream.source, Map(Buffer))
 
-        // Give the server the address, and then the rest of the stream.
-        stream.sink = cat([
-          pull.once(address),
-          pull(pull.map((msg => btoa(msg)), stream.sink))
-        ])
+    var pushable = Pushable();
 
-        cb(err, stream)
-      }
+    var ws = new WebSocket("ws://localhost:5666");
+
+    ws.on('open', function (event) {
+
+      // Tell the websocket bridge where to connect
+      ws.send(address);
+
+      var duplexStream = {
+        source: pushable,
+        sink: pull(pull.map(buf => buf.toString('base64')), pull.drain(msg => ws.send(msg)))
+      };
+
+      cb(null, duplexStream)
+    });
+
+    ws.on('message', function(data) {
+      console.log("Incoming: " + data);
+      pushable.push(Buffer.from(data, 'base64'));
     })
 
     return function () {
-      stream.close(cb)
+      console.log("todo")
     }
 
   }
