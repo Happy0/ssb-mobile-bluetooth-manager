@@ -15,23 +15,38 @@ function makeManager () {
 
     var ws = new WebSocket("ws://localhost:5666");
 
+    var duplexStream = null;
+
     ws.on('open', function (event) {
 
       // Tell the websocket bridge where to connect
       ws.send(address);
 
-      var duplexStream = {
+      duplexStream = {
         source: pushable,
-        sink: pull(pull.map(buf => buf.toString('base64')), pull.drain(msg => ws.send(msg)))
+        sink: createWebsocketSink(ws)
       };
 
       cb(null, duplexStream)
     });
 
     ws.on('message', function(data) {
-      console.log("Incoming: " + data);
+      console.log(Buffer.from(data, 'base64').toString());
+
       pushable.push(Buffer.from(data, 'base64'));
     })
+
+    ws.on('error', function() {
+      console.log("connection ended with error to: " + address);
+      duplexStream.source.end();
+    });
+
+
+    ws.on('close', function() {
+      console.log("connection closed to: " + address);
+
+      duplexStream.source.end();
+    });
 
     return function () {
       console.log("todo")
@@ -43,6 +58,21 @@ function makeManager () {
     // todo
   }
 
+  function createWebsocketSink(ws) {
+  
+    return pull(
+      pull.map(buf => buf.toString('base64')), pull.drain(msg => {
+
+        try {
+          ws.send(msg)
+        } catch (error) {
+          console.log(error);
+
+          // todo: how to abort sink / streams?
+        }
+      })
+    )
+  }
 
   return {
     connect,
