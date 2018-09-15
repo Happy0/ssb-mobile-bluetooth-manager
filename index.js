@@ -76,7 +76,7 @@ function makeManager () {
       });
 
       ws.on('close', function() {  
-        duplexStream.source.end();
+        source.end();
         abortable.abort();
       });
     
