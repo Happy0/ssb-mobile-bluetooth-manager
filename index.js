@@ -2,8 +2,10 @@ const cat = require('pull-cat');
 const pull = require('pull-stream');
 
 const Pushable = require('pull-pushable');
-
 const WebSocket = require('ws');
+var createServer = require('pull-ws/server')
+
+const rn_bridge = require('rn-bridge');
 
 function makeManager () {
 
@@ -55,7 +57,33 @@ function makeManager () {
   }
 
   function listenForIncomingConnections(onConnection) {
-    // todo
+
+    const wss = new WebSocket.Server({ port: 5667 });
+
+    wss.on('connection', function connection(ws) {
+
+      var source = Pushable();
+      var sink = createWebsocketSink(ws);
+
+      ws.on('message', function incoming(message) {
+        console.log(Buffer.from(message, 'base64').toString());
+
+        source.push(Buffer.from(message, 'base64'));
+      });
+    
+      onConnection(null, {
+        source: source,
+        sink: sink
+      })
+    });
+
+    var bridgeMsg = {
+      type: "listenIncoming",
+      params: {}
+    }
+
+    rn_bridge.channel.send(JSON.stringify(bridgeMsg));
+    
   }
 
   function createWebsocketSink(ws) {
