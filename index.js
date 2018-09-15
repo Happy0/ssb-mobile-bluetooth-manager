@@ -1,11 +1,10 @@
-const cat = require('pull-cat');
 const pull = require('pull-stream');
 
 const Pushable = require('pull-pushable');
 const WebSocket = require('ws');
-var createServer = require('pull-ws/server')
 
 const rn_bridge = require('rn-bridge');
+const Abortable = require('pull-abortable');
 
 function makeManager () {
 
@@ -18,6 +17,7 @@ function makeManager () {
     var ws = new WebSocket("ws://localhost:5666");
 
     var duplexStream = null;
+    var abortable = Abortable();
 
     ws.on('open', function (event) {
 
@@ -26,8 +26,10 @@ function makeManager () {
 
       duplexStream = {
         source: pushable,
-        sink: createWebsocketSink(ws)
+        sink: createWebsocketSink(ws, abortable)
       };
+
+      console.dir(duplexStream);
 
       cb(null, duplexStream)
     });
@@ -41,6 +43,7 @@ function makeManager () {
     ws.on('error', function() {
       console.log("connection ended with error to: " + address);
       duplexStream.source.end();
+      abortable.abort();
     });
 
 
@@ -48,6 +51,7 @@ function makeManager () {
       console.log("connection closed to: " + address);
 
       duplexStream.source.end();
+      abortable.abort();
     });
 
     return function () {
@@ -62,13 +66,18 @@ function makeManager () {
 
     wss.on('connection', function connection(ws) {
 
+      var abortable = Abortable();
+
       var source = Pushable();
-      var sink = createWebsocketSink(ws);
+      var sink = createWebsocketSink(ws, abortable);
 
       ws.on('message', function incoming(message) {
-        console.log(Buffer.from(message, 'base64').toString());
-
         source.push(Buffer.from(message, 'base64'));
+      });
+
+      ws.on('close', function() {  
+        duplexStream.source.end();
+        abortable.abort();
       });
     
       onConnection(null, {
@@ -86,15 +95,18 @@ function makeManager () {
     
   }
 
-  function createWebsocketSink(ws) {
+  function createWebsocketSink(ws, abortable) {
   
     return pull(
-      pull.map(buf => buf.toString('base64')), pull.drain(msg => {
+      abortable,
+      pull.map(buf => buf.toString('base64')),
+      pull.drain(msg => {
 
         try {
           ws.send(msg)
         } catch (error) {
           console.log(error);
+          abortable.abort();
 
           // todo: how to abort sink / streams?
         }
