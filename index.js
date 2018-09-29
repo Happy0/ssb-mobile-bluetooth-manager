@@ -19,9 +19,10 @@ function makeManager () {
     }).on('connect', function () {
       if(started) return
 
-      socket.write(address);
-
-      cb(null, toPull.duplex(socket));
+      // Tell the other side of the bridge the bluetooth device to connect to.
+      socket.write(address, () => {
+        cb(null, toPull.duplex(socket));
+      });
 
     }).on('error', function (err) {
       console.log("err?", err)
@@ -31,7 +32,9 @@ function makeManager () {
     });
 
     return function () {
-      console.log("todo")
+      started = true
+      socket.destroy();
+      cb(new Error("multiserv bt bridge aborted."))
     }
 
   }
