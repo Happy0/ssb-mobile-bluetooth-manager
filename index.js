@@ -15,12 +15,13 @@ function makeManager () {
     var started = false;
 
     var socket = net.connect({
-      path: manyverse_bt_outgoing
+      path: "\0manyverse_bt_outgoing.sock"
     }).on('connect', function () {
       if(started) return
 
       // Tell the other side of the bridge the bluetooth device to connect to.
       socket.write(address, () => {
+        console.log("Making duplex stream.")
         cb(null, toPull.duplex(socket));
       });
 
