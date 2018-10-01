@@ -8,37 +8,31 @@ const Abortable = require('pull-abortable');
 const net = require('net');
 const toPull = require('stream-to-pull-stream');
 
+const abs = require('abstract-socket');
+
 const fs = require('fs')
 
 function makeManager () {
 
-  function connect(address, cb) {
+  function connect(bluetoothAddress, cb) {
 
-    var started = false;
+    // Android only allows you to set up unix sockets in the abstract linux namespace. Addresses in the abstract linux namespace
+    // begin with \0. The .net library doesn't handle these by default, so we use 'abstract-socket' which establishes the socket then
+    // hands it to the usual nodejs net class internally.
+    var address = "\0manyverse_bt_outgoing.sock";
 
-    var socket = net.connect(
-      "/data/data/se.manyver/files/manyverse_bt_outgoing.sock"
-    ).on('connect', function () {
-      if(started) return
-
-      // Tell the other side of the bridge the bluetooth device to connect to.
-      socket.write(address, () => {
-        console.log("Making duplex stream.")
-        cb(null, toPull.duplex(socket));
-      });
-
-    }).on('error', function (err) {
-      console.log("err?", err)
-      if(started) return
-      started = true
-      cb(err)
-    });
+    var stream = abs.connect(address, function () {
+        console.log("Client connection to bridge for " + bluetoothAddress);
+        stream.write(bluetoothAddress, 'utf8', () => cb(null, toPull.duplex(stream)));
+      })
+      .on('error', function (err) {
+        cb(err)
+      })
 
     return function () {
-      started = true
-      socket.destroy();
-      cb(new Error("multiserv bt bridge aborted."))
-    }
+      stream.destroy()
+      cb(new Error('multiserver.bt_bridge: aborted'))
+}
 
   }
 

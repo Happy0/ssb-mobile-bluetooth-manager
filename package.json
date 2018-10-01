@@ -13,6 +13,7 @@
   "author": "Gordon Martin",
   "license": "MIT",
   "dependencies": {
+    "abstract-socket": "^2.0.0",
     "pull-abortable": "^4.1.1",
     "pull-pushable": "^2.2.0",
     "pull-stream": "^3.6.9",
