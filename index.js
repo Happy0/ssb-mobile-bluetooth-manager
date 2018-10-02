@@ -1,42 +1,58 @@
-const pull = require('pull-stream');
-
-const Pushable = require('pull-pushable');
-
 const rn_bridge = require('rn-bridge');
-const Abortable = require('pull-abortable');
-
 const net = require('net');
 const toPull = require('stream-to-pull-stream');
-
-const abs = require('abstract-socket');
-
-const fs = require('fs')
+const fs = require('fs');
 
 function makeManager () {
 
+  /**
+   * Android only allows unix socks in the Linux abstract namespace. Files have much better security,
+   * so we create a socket here to tell us when an outgoing bluetooth connection has been established.
+   * This isn't very elegant, but I couldn't get file based sockets working in android even with
+   * with the support of native C code for creating the server socket then passing the descriptor to Java.
+   * 
+   * The outgoing connections are made synchronously, so the front of the list is the last connection
+   * we're awaiting a response from. When we get an incoming connection, we dequeue the queue and callback
+   * with the connection.
+   * 
+   * On a connection failure, an incoming connection on the unix socket is made then disconnected.
+   */
+  const awaitingConnection = [];
+
   function connect(bluetoothAddress, cb) {
+    awaitingConnection.push(cb);
 
-    // Android only allows you to set up unix sockets in the abstract linux namespace. Addresses in the abstract linux namespace
-    // begin with \0. The .net library doesn't handle these by default, so we use 'abstract-socket' which establishes the socket then
-    // hands it to the usual nodejs net class internally.
-    var address = "\0manyverse_bt_outgoing.sock";
+    // Tell the native android code to make the outgoing bluetooth connection and then connect back
+    // on the socket
+    var bridgeMsg = {
+      type: "connectBt",
+      params: {
+        remoteAddress: bluetoothAddress
+      }
+    }
 
-    var stream = abs.connect(address, function () {
-        console.log("Client connection to bridge for " + bluetoothAddress);
-        stream.write(bluetoothAddress, 'utf8', () => cb(null, toPull.duplex(stream)));
-      })
-      .on('error', function (err) {
-        cb(err)
-      })
-
-    return function () {
-      stream.destroy()
-      cb(new Error('multiserver.bt_bridge: aborted'))
-}
-
+    console.log("bt: Asking to connect over bridge to " + bluetoothAddress);
+    rn_bridge.channel.send(JSON.stringify(bridgeMsg));
   }
 
-  // hax on double transform
+  function listenForOutgoingEstablished() {
+    var address = "/data/data/se.manyver/files/manyverse_bt_outgoing.sock";
+
+    try {
+      fs.unlinkSync(address);
+    } catch (error) {
+
+    }
+
+    var server = net.createServer(function(stream){
+      console.log("bluetooth: Outgoing connection established, calling back.")
+      var cb = awaitingConnection.shift();
+      cb(null, toPull.duplex(stream));
+    }).listen(address);
+  }
+
+
+  // For some reason, .server gets called twice...
   var started = false
 
   function listenForIncomingConnections(onConnection) {
@@ -44,6 +60,11 @@ function makeManager () {
     if(started) return
     
     var socket = "/data/data/se.manyver/files/manyverse_bt_incoming.sock";
+    try {
+      fs.unlinkSync(socket);
+    } catch (error) {
+      
+    }
 
     var server = net.createServer(function (stream) {
       onConnection(null, toPull.duplex(stream))
@@ -73,8 +94,6 @@ function makeManager () {
 
     started = true;
 
-    fs.chmodSync(socket, 0600)
-
     var bridgeMsg = {
       type: "listenIncoming",
       params: {}
@@ -87,6 +106,8 @@ function makeManager () {
       server.close()
     }
   }
+
+  listenForOutgoingEstablished();
 
   return {
     connect,
