@@ -93,17 +93,9 @@ function makeManager () {
     });
 
     started = true;
-
-    var bridgeMsg = {
-      type: "listenIncoming",
-      params: {}
-    }
-
-    rn_bridge.channel.send(JSON.stringify(bridgeMsg));
     
     return function () {
       console.log("Server close?");
-      server.close()
     }
   }
 
