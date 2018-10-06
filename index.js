@@ -24,6 +24,8 @@ function makeManager () {
 
   let controlSocketSource = Pushable();
 
+  const nearbyDevicesSource = Pushable();
+
   function connect(bluetoothAddress, cb) {
     console.log("Attempting outgoing connection to bluetooth address: " + bluetoothAddress);
 
@@ -110,7 +112,16 @@ function makeManager () {
     } else if (commandName === "disconnected") {
 
     } else if (commandName === "discovered") {
+      var currentTime = Date.now();
+      var arguments = command.arguments;
 
+      console.log("Updating nearby source");
+      console.log(arguments);
+
+      nearbyDevicesSource.push({
+        lastUpdate: currentTime,
+        discovered: arguments.devices
+      })
     }
 
   }
@@ -130,7 +141,6 @@ function makeManager () {
       awaitingConnection[0].stream = toPull.duplex(stream);
     }).listen(address);
   }
-
 
   // For some reason, .server gets called twice...
   var started = false
@@ -161,12 +171,42 @@ function makeManager () {
     }
   }
 
+  function refreshNearbyDevices() {
+    // Tell the native android code to discover nearby devices. When it responds, we'll update the
+    // 'nearBy devices' pull-stream source
+
+    controlSocketSource.push({
+      "command": "discoverDevices",
+      "arguments": {
+        
+      }
+    });
+  }
+
+  function nearbyDevices() {
+    return nearbyDevicesSource;
+  }
+
+  function makeDeviceDiscoverable(forTime) {
+    console.log("Making device discoverable");
+
+    controlSocketSource.push({
+      "command": "makeDiscoverable",
+      "arguments": {
+        "forTime": forTime    
+      }
+    });
+  }
+
   listenForOutgoingEstablished();
   makeControlSocket();
 
   return {
     connect,
-    listenForIncomingConnections
+    listenForIncomingConnections,
+    refreshNearbyDevices,
+    nearbyDevices,
+    makeDeviceDiscoverable
   }
 
 }
