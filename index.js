@@ -1,7 +1,10 @@
-const rn_bridge = require('rn-bridge');
 const net = require('net');
 const toPull = require('stream-to-pull-stream');
 const fs = require('fs');
+const pull = require('pull-stream');
+
+const Pushable = require('pull-pushable');
+const pullJson = require('pull-json-doubleline')
 
 function makeManager () {
 
@@ -19,20 +22,97 @@ function makeManager () {
    */
   const awaitingConnection = [];
 
+  let controlSocketSource = Pushable();
+
   function connect(bluetoothAddress, cb) {
-    awaitingConnection.push(cb);
+    console.log("Attempting outgoing connection to bluetooth address: " + bluetoothAddress);
+
+    awaitingConnection.push({
+      address: bluetoothAddress,
+      cb
+    });
 
     // Tell the native android code to make the outgoing bluetooth connection and then connect back
     // on the socket
-    var bridgeMsg = {
-      type: "connectBt",
-      params: {
-        remoteAddress: bluetoothAddress
+
+    controlSocketSource.push({
+      "command": "connect",
+      "arguments": {
+        "remoteAddress": bluetoothAddress
       }
+    })
+  
+  }
+
+  let controlSocketEstablished = false;
+
+  function makeControlSocket() {
+    if (controlSocketEstablished) return;
+
+    var address = "/data/data/se.manyver/files/manyverse_bt_control.sock";
+
+    try {
+      fs.unlinkSync(address);
+    } catch (error) {
     }
 
-    console.log("bt: Asking to connect over bridge to " + bluetoothAddress);
-    rn_bridge.channel.send(JSON.stringify(bridgeMsg));
+    var controlSocket = net.createServer(function(stream){
+
+      var duplexConnection = toPull.duplex(stream);
+
+      // Send commands to the control server
+      pull(controlSocketSource, 
+        pullJson.stringify(),
+        pull.map(logOutgoingCommand),
+        duplexConnection.sink
+      );
+
+      // Receive and process commands from the control server
+      pull(duplexConnection.source, pullJson.parse(), pull.drain(doCommand));
+
+    }).listen(address);
+
+    controlSocketEstablished = true;
+
+    controlSocket.on('closed', function() {
+      console.log("Control socket closed");
+    })
+
+    console.log("Created control socket");
+  }
+
+  function logOutgoingCommand(command) {
+    console.log("Sending outgoing command to control server");
+    console.log(command);
+
+    return command;
+  }
+
+  function doCommand (command) {
+
+    console.log("Received command: ");
+    console.dir(command);
+
+    let commandName = command.command;
+
+    if (commandName === "connected" && !command.arguments.isIncoming) {
+      // The initial stream connection is just to the Unix socket. We don't know if that socket is proxying
+      // the bluetooth connection successfully until we receive an event to tell us it's connected.
+      var awaiting = awaitingConnection.shift();
+      awaiting.cb(null, awaiting.stream);
+
+    } else if (commandName === "connectionFailure") {
+      var awaiting = awaitingConnection.shift();
+      var reason = command.arguments.reason;
+      
+      awaiting.cb(new Error(reason), null);
+
+    } else if (commandName === "disconnected") {
+
+    } else if (commandName === "discovered") {
+
+    }
+
   }
 
   function listenForOutgoingEstablished() {
@@ -45,9 +125,9 @@ function makeManager () {
     }
 
     var server = net.createServer(function(stream){
-      console.log("bluetooth: Outgoing connection established, calling back.")
-      var cb = awaitingConnection.shift();
-      cb(null, toPull.duplex(stream));
+      console.log("bluetooth: Outgoing connection established proxy connection, adding to awaiting object.")
+
+      awaitingConnection[0].stream = toPull.duplex(stream);
     }).listen(address);
   }
 
@@ -70,24 +150,6 @@ function makeManager () {
       onConnection(null, toPull.duplex(stream))
     }).listen(socket);
 
-    server.on('error', function (e) {
-      if (e.code == 'EADDRINUSE') {
-        var clientSocket = new net.Socket()
-        clientSocket.on('error', function(e) {
-          if (e.code == 'ECONNREFUSED') {
-            fs.unlinkSync(socket)
-            server.listen(socket)
-          }
-        })
-
-        clientSocket.connect({ path: socket }, function() {
-          console.log("bt-bridge: someone else is listening on socket!")
-        })
-      } else {
-        console.log("bt_bridge: " + e);
-      }
-    })
-
     server.on('close', function (e) {
       console.log("bt_bridge socket closed: " + e);
     });
@@ -100,6 +162,7 @@ function makeManager () {
   }
 
   listenForOutgoingEstablished();
+  makeControlSocket();
 
   return {
     connect,
