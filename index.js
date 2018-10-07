@@ -24,7 +24,7 @@ function makeManager () {
 
   let controlSocketSource = Pushable();
 
-  const nearbyDevicesSource = Pushable();
+  let awaitingDevicesCb = null;
 
   function connect(bluetoothAddress, cb) {
     console.log("Attempting outgoing connection to bluetooth address: " + bluetoothAddress);
@@ -118,10 +118,12 @@ function makeManager () {
       console.log("Updating nearby source");
       console.log(arguments);
 
-      nearbyDevicesSource.push({
+      var nearBy = {
         lastUpdate: currentTime,
         discovered: arguments.devices
-      })
+      }
+
+      awaitingDevicesCb(null, nearBy);
     }
 
   }
@@ -183,8 +185,22 @@ function makeManager () {
     });
   }
 
-  function nearbyDevices() {
-    return nearbyDevicesSource;
+  function getLatestNearbyDevices(cb) {
+    awaitingDevicesCb = cb;
+
+    refreshNearbyDevices();
+  }
+
+  function nearbyDevices(refreshInterval) {
+
+    return pull(
+      pull.infinite(),
+      pull.asyncMap((next, cb) => {
+        setTimeout(() => {
+          getLatestNearbyDevices(cb)
+        }, refreshInterval)
+      })
+    )
   }
 
   function makeDeviceDiscoverable(forTime) {
@@ -204,7 +220,6 @@ function makeManager () {
   return {
     connect,
     listenForIncomingConnections,
-    refreshNearbyDevices,
     nearbyDevices,
     makeDeviceDiscoverable
   }
