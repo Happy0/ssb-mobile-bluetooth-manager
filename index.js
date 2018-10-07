@@ -25,6 +25,8 @@ function makeManager () {
   let controlSocketSource = Pushable();
 
   let awaitingDevicesCb = null;
+  let lastIncomingStream = null;
+  let onIncomingConnection = null;
 
   function connect(bluetoothAddress, cb) {
     console.log("Attempting outgoing connection to bluetooth address: " + bluetoothAddress);
@@ -101,8 +103,17 @@ function makeManager () {
       // The initial stream connection is just to the Unix socket. We don't know if that socket is proxying
       // the bluetooth connection successfully until we receive an event to tell us it's connected.
       var awaiting = awaitingConnection.shift();
-      awaiting.cb(null, awaiting.stream);
 
+      var addr = "bt:" + command.arguments.remoteAddress;
+      console.log("Setting outgoing stream address to " + addr);
+
+      awaiting.stream.address = addr;
+      awaiting.cb(null, awaiting.stream);
+    } else if (commandName === "connected" && command.arguments.isIncoming) {
+      var incomingAddr = "bt:" + command.arguments.remoteAddress;
+      console.log("Setting incoming connection stream address to: " + incomingAddr);
+      lastIncomingStream.address = incomingAddr;
+      onIncomingConnection(null, lastIncomingStream);
     } else if (commandName === "connectionFailure") {
       var awaiting = awaitingConnection.shift();
       var reason = command.arguments.reason;
@@ -149,6 +160,8 @@ function makeManager () {
 
   function listenForIncomingConnections(onConnection) {
 
+    onIncomingConnection = onConnection;
+
     if(started) return
     
     var socket = "/data/data/se.manyver/files/manyverse_bt_incoming.sock";
@@ -159,7 +172,10 @@ function makeManager () {
     }
 
     var server = net.createServer(function (stream) {
-      onConnection(null, toPull.duplex(stream))
+
+      // We only call back with the connection when we later receive the address over the control
+      // bridge. See the 'onCommand' function.
+      lastIncomingStream = toPull.duplex(stream);
     }).listen(socket);
 
     server.on('close', function (e) {
