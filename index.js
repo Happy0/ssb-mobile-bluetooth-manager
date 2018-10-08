@@ -129,12 +129,17 @@ function makeManager () {
       console.log("Updating nearby source");
       console.log(arguments);
 
-      var nearBy = {
-        lastUpdate: currentTime,
-        discovered: arguments.devices
+      if (arguments.error === true) {
+        awaitingDevicesCb(arguments, null);
+      } else {
+        var nearBy = {
+          lastUpdate: currentTime,
+          discovered: arguments.devices
+        }
+  
+        awaitingDevicesCb(null, nearBy);
       }
-
-      awaitingDevicesCb(null, nearBy);
+    
     }
 
   }
