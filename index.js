@@ -25,6 +25,7 @@ function makeManager () {
   let controlSocketSource = Pushable();
 
   let awaitingDevicesCb = null;
+  let awaitingDiscoverableResponse = null;
   let lastIncomingStream = null;
   let onIncomingConnection = null;
 
@@ -140,6 +141,16 @@ function makeManager () {
         awaitingDevicesCb(null, nearBy);
       }
     
+    } else if (commandName === "discoverable") {
+      var arguments = command.arguments;
+      if (arguments.error === true) {
+        awaitingDiscoverableResponse(command.arguments);
+      }
+      else {
+        awaitingDiscoverableResponse(null, command.arguments);
+      }
+
+      awaitingDiscoverableResponse = null;
     }
 
   }
@@ -224,15 +235,29 @@ function makeManager () {
     )
   }
 
-  function makeDeviceDiscoverable(forTime) {
+  function makeDeviceDiscoverable(forTime, cb) {
     console.log("Making device discoverable");
 
-    controlSocketSource.push({
-      "command": "makeDiscoverable",
-      "arguments": {
-        "forTime": forTime    
-      }
-    });
+    if (awaitingDiscoverableResponse != null) {
+      cb(
+        {
+          "error": true,
+          "errorCode": "alreadyInProgress",
+          "description": "Already requesting to make device discoverable."
+        }
+      )
+    } else {
+      awaitingDiscoverableResponse = cb;
+
+      controlSocketSource.push({
+        "command": "makeDiscoverable",
+        "arguments": {
+          "forTime": forTime    
+        }
+      });
+    }
+
+
   }
 
   listenForOutgoingEstablished();
