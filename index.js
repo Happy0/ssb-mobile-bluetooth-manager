@@ -26,8 +26,10 @@ function makeManager () {
 
   let awaitingDevicesCb = null;
   let awaitingDiscoverableResponse = null;
+  let awaitingIsEnabledResponse = null;
   let lastIncomingStream = null;
   let onIncomingConnection = null;
+  
 
   function connect(bluetoothAddress, cb) {
     console.log("Attempting outgoing connection to bluetooth address: " + bluetoothAddress);
@@ -151,6 +153,9 @@ function makeManager () {
       }
 
       awaitingDiscoverableResponse = null;
+    } else if (commandName === "isEnabled") {
+      var arguments = command.arguments;
+      awaitingIsEnabledResponse(null, arguments.enabled);
     }
 
   }
@@ -256,8 +261,27 @@ function makeManager () {
         }
       });
     }
+  }
 
+  function isEnabled(cb) {
+    if (awaitingIsEnabledResponse) {
+      cb(
+        {
+          "error": true,
+          "errorCode": "alreadyInProgress",
+          "description": "Already awaiting 'isEnabled' response."
+        }
+      );
+    } else {
+      awaitingIsEnabledResponse = cb;
 
+      controlSocketSource.push({
+        "command": "isEnabled",
+        "arguments": {
+
+        }
+      })
+    }
   }
 
   listenForOutgoingEstablished();
@@ -267,7 +291,8 @@ function makeManager () {
     connect,
     listenForIncomingConnections,
     nearbyDevices,
-    makeDeviceDiscoverable
+    makeDeviceDiscoverable,
+    isEnabled
   }
 
 }
