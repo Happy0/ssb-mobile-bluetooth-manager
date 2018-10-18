@@ -117,7 +117,7 @@ function makeManager () {
       console.log("Setting incoming connection stream address to: " + incomingAddr);
       lastIncomingStream.address = incomingAddr;
       onIncomingConnection(null, lastIncomingStream);
-    } else if (commandName === "connectionFailure") {
+    } else if (commandName === "connectionFailure" && !command.arguments.isIncoming) {
       var awaiting = awaitingConnection.shift();
       var reason = command.arguments.reason;
       
