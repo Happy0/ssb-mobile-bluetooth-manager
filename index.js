@@ -6,7 +6,12 @@ const pull = require('pull-stream');
 const Pushable = require('pull-pushable');
 const pullJson = require('pull-json-doubleline')
 
-function makeManager () {
+function makeManager (opts) {
+
+  if (!opts.socketFolderPath) {
+    throw new Error("ssb-mobile-bluetooth-manager must be configured with a socketFolderPath option.");
+  }
+
 
   /**
    * Android only allows unix socks in the Linux abstract namespace. Files have much better security,
@@ -29,7 +34,6 @@ function makeManager () {
   let awaitingIsEnabledResponse = null;
   let lastIncomingStream = null;
   let onIncomingConnection = null;
-  
 
   function connect(bluetoothAddress, cb) {
     console.log("Attempting outgoing connection to bluetooth address: " + bluetoothAddress);
@@ -56,7 +60,7 @@ function makeManager () {
   function makeControlSocket() {
     if (controlSocketEstablished) return;
 
-    var address = "/data/data/se.manyver/files/manyverse_bt_control.sock";
+    var address = opts.socketFolderPath + "/manyverse_bt_control.sock";
 
     try {
       fs.unlinkSync(address);
@@ -161,7 +165,7 @@ function makeManager () {
   }
 
   function listenForOutgoingEstablished() {
-    var address = "/data/data/se.manyver/files/manyverse_bt_outgoing.sock";
+    var address = opts.socketFolderPath + "/manyverse_bt_outgoing.sock";
 
     try {
       fs.unlinkSync(address);
@@ -185,7 +189,7 @@ function makeManager () {
 
     if(started) return
     
-    var socket = "/data/data/se.manyver/files/manyverse_bt_incoming.sock";
+    var socket = opts.socketFolderPath + "/manyverse_bt_incoming.sock";
     try {
       fs.unlinkSync(socket);
     } catch (error) {
