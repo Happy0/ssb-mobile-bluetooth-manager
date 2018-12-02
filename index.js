@@ -34,6 +34,7 @@ function makeManager (opts) {
   let awaitingIsEnabledResponse = null;
   let lastIncomingStream = null;
   let onIncomingConnection = null;
+  let awaitingOwnMacAddressResponse = null;
 
   function connect(bluetoothAddress, cb) {
     console.log("Attempting outgoing connection to bluetooth address: " + bluetoothAddress);
@@ -160,6 +161,9 @@ function makeManager (opts) {
     } else if (commandName === "isEnabled") {
       var arguments = command.arguments;
       awaitingIsEnabledResponse(null, arguments.enabled);
+    } else if (commandName === "ownMacAddress") {
+      var arguments = command.arguments;
+      awaitingOwnMacAddressResponse(null, arguments.address);
     }
 
   }
@@ -288,6 +292,31 @@ function makeManager (opts) {
     }
   }
 
+  function getOwnMacAddress(cb) {
+    if (awaitingOwnMacAddressResponse) {
+      return makeError("alreadyAwaitingMacAddress", "Already awaiting 'ownMacAddress' response");
+    } else {
+      awaitingOwnMacAddressResponse = cb;
+
+      controlSocketSource.push({
+        "command": "ownMacAddress",
+        "arguments": {
+
+        }
+      })
+
+    }
+  }
+
+  function makeError(errorCode, description) {
+    return {
+        "error": true,
+        "errorCode": errorCode,
+        "description": description
+      }
+  }
+
+
   listenForOutgoingEstablished();
   makeControlSocket();
 
@@ -296,7 +325,8 @@ function makeManager (opts) {
     listenForIncomingConnections,
     nearbyDevices,
     makeDeviceDiscoverable,
-    isEnabled
+    isEnabled,
+    getOwnMacAddress
   }
 
 }
