@@ -40,6 +40,8 @@ function makeManager (opts) {
   let onIncomingConnection = null;
   let awaitingOwnMacAddressResponse = null;
 
+  var metadataServiceUUID = "b4721184-46dc-4314-b031-bf52c2b197f3";
+
   function connect(bluetoothAddress, cb) {
     console.log("Attempting outgoing connection to bluetooth address: " + bluetoothAddress);
 
@@ -273,8 +275,8 @@ function makeManager (opts) {
       controlSocketSource.push({
         "command": "startMetadataService",
         "arguments": {
-          "serviceName": "",
-          "service": serviceUUID,
+          "serviceName": "scuttlebuttMetadata",
+          "service": metadataServiceUUID,
           "payload": payload,
           "timeSeconds": forTime - 10
         }
