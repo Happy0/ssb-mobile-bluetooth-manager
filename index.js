@@ -267,7 +267,7 @@ function makeManager (opts) {
       awaitingDiscoverableResponse = cb;
 
       var payload = {
-        "id": myIdent
+        "id": opts.myIdent
       };
 
       controlSocketSource.push({
