@@ -12,6 +12,10 @@ function makeManager (opts) {
     throw new Error("ssb-mobile-bluetooth-manager must be configured with a socketFolderPath option.");
   }
 
+  if (!opts.myIdent) {
+    throw new Error("ssb-mobile-bluetooth-manager must be configured with the myIdent option.")
+  }
+
 
   /**
    * Android only allows unix socks in the Linux abstract namespace. Files have much better security,
@@ -261,6 +265,20 @@ function makeManager (opts) {
       )
     } else {
       awaitingDiscoverableResponse = cb;
+
+      var payload = {
+        "id": myIdent
+      };
+
+      controlSocketSource.push({
+        "command": "startMetadataService",
+        "arguments": {
+          "serviceName": "",
+          "service": serviceUUID,
+          "payload": payload,
+          "timeSeconds": forTime - 10
+        }
+      })
 
       controlSocketSource.push({
         "command": "makeDiscoverable",
