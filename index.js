@@ -331,7 +331,7 @@ function makeManager (opts) {
   function getMetadataForDevice(deviceMacAddress, cb) {
     var requestId = Math.floor(Math.random() * 10);
 
-    awaitingMetadata[requestId.toString()] = requestId;
+    awaitingMetadata[requestId.toString()] = cb;
 
     controlSocketSource.push({
       "command": "getMetadata",
