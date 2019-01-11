@@ -16,7 +16,6 @@ function makeManager (opts) {
     throw new Error("ssb-mobile-bluetooth-manager must be configured with the myIdent option.")
   }
 
-
   /**
    * Android only allows unix socks in the Linux abstract namespace. Files have much better security,
    * so we create a socket here to tell us when an outgoing bluetooth connection has been established.
@@ -39,6 +38,10 @@ function makeManager (opts) {
   let lastIncomingStream = null;
   let onIncomingConnection = null;
   let awaitingOwnMacAddressResponse = null;
+
+  let awaitingMetadata = {
+
+  }
 
   var metadataServiceUUID = "b4721184-46dc-4314-b031-bf52c2b197f3";
 
@@ -170,6 +173,19 @@ function makeManager (opts) {
     } else if (commandName === "ownMacAddress") {
       var arguments = command.arguments;
       awaitingOwnMacAddressResponse(null, arguments.address);
+    } else if (commandName === "getMetadata") {
+      var arguments = command.arguments;
+
+      var requestId = arguments.requestId;
+
+      var cb = awaitingMetadata[requestId];
+
+      if (arguments.error === true) {
+        cb(arguments.error, null);
+      } else {
+        cb(null, arguments.metadata);
+      }
+        
     }
 
   }
@@ -312,6 +328,22 @@ function makeManager (opts) {
     }
   }
 
+  function getMetadataForDevice(deviceMacAddress, cb) {
+    var requestId = Math.floor(Math.random() * 10);
+
+    awaitingMetadata[requestId.toString()]
+
+    controlSocketSource.push({
+      "command": "getMetadata",
+      "arguments": {
+        "requestId": requestId.toString(),
+        "remoteDevice": deviceMacAddress,
+        "service": metadataServiceUUID
+      }
+    });
+
+  }
+
   function getOwnMacAddress(cb) {
     if (awaitingOwnMacAddressResponse) {
       return makeError("alreadyAwaitingMacAddress", "Already awaiting 'ownMacAddress' response");
@@ -345,6 +377,7 @@ function makeManager (opts) {
     listenForIncomingConnections,
     nearbyDevices,
     makeDeviceDiscoverable,
+    getMetadataForDevice,
     isEnabled,
     getOwnMacAddress
   }
