@@ -4,7 +4,9 @@ const fs = require('fs');
 const pull = require('pull-stream');
 
 const Pushable = require('pull-pushable');
-const pullJson = require('pull-json-doubleline')
+const pullJson = require('pull-json-doubleline');
+
+const uuidv4 = require('uuid/v4');
 
 function makeManager (opts) {
 
@@ -329,14 +331,14 @@ function makeManager (opts) {
   }
 
   function getMetadataForDevice(deviceMacAddress, cb) {
-    var requestId = Math.floor(Math.random() * 10);
+    var requestId = uuidv4();
 
-    awaitingMetadata[requestId.toString()] = cb;
+    awaitingMetadata[requestId] = cb;
 
     controlSocketSource.push({
       "command": "getMetadata",
       "arguments": {
-        "requestId": requestId.toString(),
+        "requestId": requestId,
         "remoteDevice": deviceMacAddress,
         "service": metadataServiceUUID
       }
