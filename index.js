@@ -297,8 +297,8 @@ function makeManager (opts) {
   function nearbyScuttlebuttDevices(refreshInterval) {
     return pull(
       nearbyDevices(),
-      pull.asyncMap( (devices, cb) => {
-        getValidAddresses(devices, cb)
+      pull.asyncMap( (result, cb) => {
+        getValidAddresses(result.devices, cb)
       })
     )
   }
