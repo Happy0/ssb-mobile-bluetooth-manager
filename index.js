@@ -286,7 +286,9 @@ function makeManager (opts) {
             console.log("Valid addresses:");
 
             console.log(result);
-            cb(null, results);
+            cb(null, {
+              "devices": results
+            });
           }
     
         });
@@ -296,8 +298,10 @@ function makeManager (opts) {
 
   function nearbyScuttlebuttDevices(refreshInterval) {
     return pull(
-      nearbyDevices(),
+      nearbyDevices(refreshInterval),
       pull.asyncMap( (result, cb) => {
+        console.log("Result is? " + result);
+
         getValidAddresses(result.devices, cb)
       })
     )
