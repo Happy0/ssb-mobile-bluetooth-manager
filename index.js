@@ -260,6 +260,49 @@ function makeManager (opts) {
     refreshNearbyDevices();
   }
 
+  function getValidAddresses(devices, cb) {
+  
+    var results = [];
+    var count = 0;
+  
+    devices.forEach( (device, num) => {
+  
+      // Leave some grace seconds so it's not complete spam..
+      setTimeout( () => {
+        getMetadataForDevice(device.remoteAddress, (err, res) => {
+  
+          count = count + 1;
+    
+          console.log("getValidAddresses count: " + count)
+    
+          if (!err) {
+            console.log(device.remoteAddress + " is available for scuttlebutt bluetooth connections");
+            device.id = res.id;
+            results.push(device);
+          }
+    
+          if (count === devices.length) {
+            console.log("Calling back (get valid addresses)...");
+            console.log("Valid addresses:");
+
+            console.log(result);
+            cb(null, results);
+          }
+    
+        });
+      }, num * 2000);
+    })
+  }
+
+  function nearbyScuttlebuttDevices(refreshInterval) {
+    return pull(
+      nearbyDevices(),
+      pull.asyncMap( (devices, cb) => {
+        getValidAddresses(devices, cb)
+      })
+    )
+  }
+
   function nearbyDevices(refreshInterval) {
 
     return pull(
@@ -378,6 +421,7 @@ function makeManager (opts) {
     connect,
     listenForIncomingConnections,
     nearbyDevices,
+    nearbyScuttlebuttDevices,
     makeDeviceDiscoverable,
     getMetadataForDevice,
     isEnabled,
