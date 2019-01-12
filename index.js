@@ -12,6 +12,9 @@ function makeManager (opts) {
     throw new Error("ssb-mobile-bluetooth-manager must be configured with a socketFolderPath option.");
   }
 
+  if (!opts.myIdent) {
+    throw new Error("ssb-mobile-bluetooth-manager must be configured with the myIdent option.")
+  }
 
   /**
    * Android only allows unix socks in the Linux abstract namespace. Files have much better security,
@@ -35,6 +38,12 @@ function makeManager (opts) {
   let lastIncomingStream = null;
   let onIncomingConnection = null;
   let awaitingOwnMacAddressResponse = null;
+
+  let awaitingMetadata = {
+
+  }
+
+  var metadataServiceUUID = "b4721184-46dc-4314-b031-bf52c2b197f3";
 
   function connect(bluetoothAddress, cb) {
     console.log("Attempting outgoing connection to bluetooth address: " + bluetoothAddress);
@@ -164,6 +173,19 @@ function makeManager (opts) {
     } else if (commandName === "ownMacAddress") {
       var arguments = command.arguments;
       awaitingOwnMacAddressResponse(null, arguments.address);
+    } else if (commandName === "getMetadata") {
+      var arguments = command.arguments;
+
+      var requestId = arguments.requestId;
+
+      var cb = awaitingMetadata[requestId];
+
+      if (arguments.error === true) {
+        cb(arguments.error, null);
+      } else {
+        cb(null, arguments.metadata);
+      }
+        
     }
 
   }
@@ -262,6 +284,20 @@ function makeManager (opts) {
     } else {
       awaitingDiscoverableResponse = cb;
 
+      var payload = {
+        "id": opts.myIdent
+      };
+
+      controlSocketSource.push({
+        "command": "startMetadataService",
+        "arguments": {
+          "serviceName": "scuttlebuttMetadata",
+          "service": metadataServiceUUID,
+          "payload": payload,
+          "timeSeconds": forTime - 10
+        }
+      })
+
       controlSocketSource.push({
         "command": "makeDiscoverable",
         "arguments": {
@@ -290,6 +326,22 @@ function makeManager (opts) {
         }
       })
     }
+  }
+
+  function getMetadataForDevice(deviceMacAddress, cb) {
+    var requestId = Math.floor(Math.random() * 10);
+
+    awaitingMetadata[requestId.toString()] = cb;
+
+    controlSocketSource.push({
+      "command": "getMetadata",
+      "arguments": {
+        "requestId": requestId.toString(),
+        "remoteDevice": deviceMacAddress,
+        "service": metadataServiceUUID
+      }
+    });
+
   }
 
   function getOwnMacAddress(cb) {
@@ -325,6 +377,7 @@ function makeManager (opts) {
     listenForIncomingConnections,
     nearbyDevices,
     makeDeviceDiscoverable,
+    getMetadataForDevice,
     isEnabled,
     getOwnMacAddress
   }
