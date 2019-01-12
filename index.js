@@ -300,7 +300,8 @@ function makeManager (opts) {
     return pull(
       nearbyDevices(refreshInterval),
       pull.asyncMap( (result, cb) => {
-        console.log("Result is? " + result);
+        console.log("Result is? ");
+        console.log(result);
 
         getValidAddresses(result.devices, cb)
       })
