@@ -287,7 +287,8 @@ function makeManager (opts) {
 
             console.log(result);
             cb(null, {
-              "devices": results
+              "discovered": results,
+              "lastUpdate": Date.now()
             });
           }
     
@@ -303,7 +304,7 @@ function makeManager (opts) {
         console.log("Result is? ");
         console.log(result);
 
-        getValidAddresses(result.devices, cb)
+        getValidAddresses(result.discovered, cb)
       })
     )
   }
