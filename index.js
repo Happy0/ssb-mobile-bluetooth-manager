@@ -187,6 +187,8 @@ function makeManager (opts) {
       } else {
         cb(null, arguments.metadata);
       }
+
+      delete awaitingMetadata[requestId];
         
     }
 
