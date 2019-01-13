@@ -178,7 +178,7 @@ function makeManager (opts) {
     } else if (commandName === "getMetadata") {
       var arguments = command.arguments;
 
-      var requestId = arguments.requestId;
+      var requestId = command.requestId;
 
       var cb = awaitingMetadata[requestId];
 
@@ -388,8 +388,8 @@ function makeManager (opts) {
 
     controlSocketSource.push({
       "command": "getMetadata",
+      "requestId": requestId,
       "arguments": {
-        "requestId": requestId,
         "remoteDevice": deviceMacAddress,
         "service": metadataServiceUUID
       }
