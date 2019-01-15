@@ -449,6 +449,7 @@ function makeManager (opts) {
         duplexStream.sink
       )
 
+      return duplexStream;
     }
   }
 
