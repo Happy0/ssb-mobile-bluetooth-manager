@@ -351,7 +351,7 @@ function makeManager (opts) {
           "serviceName": "scuttlebuttMetadata",
           "service": metadataServiceUUID,
           "payload": payload,
-          "forTime": forTime
+          "timeSeconds": forTime
         }
       })
 
