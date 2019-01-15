@@ -10,11 +10,11 @@ const uuidv4 = require('uuid/v4');
 
 function makeManager (opts) {
 
-  if (!opts.socketFolderPath) {
+  if (!opts || !opts.socketFolderPath) {
     throw new Error("ssb-mobile-bluetooth-manager must be configured with a socketFolderPath option.");
   }
 
-  if (!opts.myIdent) {
+  if (!opts || !opts.myIdent) {
     throw new Error("ssb-mobile-bluetooth-manager must be configured with the myIdent option.")
   }
 
@@ -85,6 +85,10 @@ function makeManager (opts) {
 
       // Send commands to the control server
       pull(controlSocketSource, 
+        pull.asyncMap( (item, cb) => {
+          // temporary workaround for issue with messages getting swallowed at the other side of the socket.
+          setTimeout( () => cb(null, item), 1000)
+        }),
         pullJson.stringify(),
         pull.map(logOutgoingCommand),
         duplexConnection.sink
@@ -206,7 +210,7 @@ function makeManager (opts) {
     var server = net.createServer(function(stream){
       console.log("bluetooth: Outgoing connection established proxy connection, adding to awaiting object.")
 
-      awaitingConnection[0].stream = toPull.duplex(stream);
+      awaitingConnection[0].stream = logDuplexStreams(toPull.duplex(stream));
     }).listen(address);
   }
 
@@ -230,7 +234,7 @@ function makeManager (opts) {
 
       // We only call back with the connection when we later receive the address over the control
       // bridge. See the 'onCommand' function.
-      lastIncomingStream = toPull.duplex(stream);
+      lastIncomingStream = logDuplexStreams(toPull.duplex(stream));
     }).listen(socket);
 
     server.on('close', function (e) {
@@ -347,7 +351,7 @@ function makeManager (opts) {
           "serviceName": "scuttlebuttMetadata",
           "service": metadataServiceUUID,
           "payload": payload,
-          "timeSeconds": forTime - 10
+          "forTime": forTime
         }
       })
 
@@ -419,6 +423,33 @@ function makeManager (opts) {
         "errorCode": errorCode,
         "description": description
       }
+  }
+
+  /**
+   * If 'opts.logStreams' is true, logs out incoming and outgoing data streams.
+   * @param {} duplexStream 
+   */
+  function logDuplexStreams(duplexStream) {
+    if (!opts.logStreams) {
+      return duplexStream;
+    } else {
+
+      duplexStream.source = pull(duplexStream.source, pull.map(
+        buff => {
+          console.log( "[source] " + buff.toString() )
+          return buff;
+        }
+      ));
+
+      duplexStream.sink = pull(
+        pull.map(outgoingBuff => {
+          console.log( "[sink] " + outgoingBuff.toString() )
+          return outgoingBuff;
+        }),
+        duplexStream.sink
+      )
+
+    }
   }
 
 
