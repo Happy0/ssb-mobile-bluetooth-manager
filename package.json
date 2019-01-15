@@ -1,6 +1,6 @@
 {
   "name": "ssb-mobile-bluetooth-manager",
-  "version": "2.0.14",
+  "version": "2.0.15",
   "description": "A module for managing bluetooth connections over a react native bridge.",
   "main": "index.js",
   "scripts": {
