@@ -287,7 +287,7 @@ function makeManager (opts) {
             console.log("Calling back (get valid addresses)...");
             console.log("Valid addresses:");
 
-            console.log(devices);
+            console.log(results);
             cb(null, {
               "discovered": results,
               "lastUpdate": Date.now()
