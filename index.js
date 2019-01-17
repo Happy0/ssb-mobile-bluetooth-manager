@@ -339,21 +339,37 @@ function makeManager (opts) {
         }
       )
     } else {
-      awaitingDiscoverableResponse = cb;
 
-      var payload = {
-        "id": opts.myIdent
-      };
+      var callback = (err, result) => {
 
-      controlSocketSource.push({
-        "command": "startMetadataService",
-        "arguments": {
-          "serviceName": "scuttlebuttMetadata",
-          "service": metadataServiceUUID,
-          "payload": payload,
-          "timeSeconds": forTime
+        if (err) {
+          cb(err, null);
+        } else {
+          var payload = {
+            "id": opts.myIdent
+          };
+
+          // Start the metadata service which gives peers the user's scuttlebutt details
+          // when they connect to populate their bluetooth list with
+
+          console.log("Device is discoverable. Request to start metadata service.");
+    
+          controlSocketSource.push({
+            "command": "startMetadataService",
+            "arguments": {
+              "serviceName": "scuttlebuttMetadata",
+              "service": metadataServiceUUID,
+              "payload": payload,
+              "timeSeconds": forTime
+            }
+          })
+
+          cb(null, result);
         }
-      })
+
+      }
+
+      awaitingDiscoverableResponse = callback;
 
       controlSocketSource.push({
         "command": "makeDiscoverable",
