@@ -113,7 +113,7 @@ function makeManager (opts) {
           console.log("Calling back multiserve with successful outgoing connection to " + outgoingAddress);
           cb(null, stream);
         } else {
-          console.log("Calling back with unssuccessful connection to multiserver for address: " + outgoingAddress)
+          console.log("Calling back with unsuccessful connection to multiserver for address: " + outgoingAddress)
           cb(new Error(connectionOutcome.failureReason));
         }
       })
@@ -138,7 +138,7 @@ function makeManager (opts) {
       // The initial stream connection is just to the Unix socket. We don't know if that socket is proxying
       // the bluetooth connection successfully until we receive an event to tell us it's connected.
 
-      var addr = "bt:" + command.arguments.remoteAddress;
+      var addr = "bt:" + command.arguments.remoteAddress.split(":").join("");
       console.log("Setting outgoing stream address to " + addr);
 
       var result = {
@@ -148,7 +148,7 @@ function makeManager (opts) {
 
       outgoingAddressEstablished.push(result);
     } else if (commandName === "connected" && command.arguments.isIncoming) {
-      var incomingAddr = "bt:" + command.arguments.remoteAddress;
+      var incomingAddr = "bt:" + command.arguments.remoteAddress.split(":").join("");
       console.log("Setting incoming connection stream address to: " + incomingAddr);
       lastIncomingStream.address = incomingAddr;
       onIncomingConnection(null, lastIncomingStream);
@@ -157,6 +157,7 @@ function makeManager (opts) {
 
       var result = {
         success: false,
+        address: command.arguments.remoteAddress.split(":").join(""),
         failureReason: reason
       }
       
