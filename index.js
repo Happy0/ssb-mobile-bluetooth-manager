@@ -6,6 +6,8 @@ const pull = require('pull-stream');
 const Pushable = require('pull-pushable');
 const pullJson = require('pull-json-doubleline');
 
+const zip  = require('pull-zip')
+
 const uuidv4 = require('uuid/v4');
 
 function makeManager (opts) {
@@ -18,19 +20,9 @@ function makeManager (opts) {
     throw new Error("ssb-mobile-bluetooth-manager must be configured with the myIdent option.")
   }
 
-  /**
-   * Android only allows unix socks in the Linux abstract namespace. Files have much better security,
-   * so we create a socket here to tell us when an outgoing bluetooth connection has been established.
-   * This isn't very elegant, but I couldn't get file based sockets working in android even with
-   * with the support of native C code for creating the server socket then passing the descriptor to Java.
-   * 
-   * The outgoing connections are made synchronously, so the front of the list is the last connection
-   * we're awaiting a response from. When we get an incoming connection, we dequeue the queue and callback
-   * with the connection.
-   * 
-   * On a connection failure, an incoming connection on the unix socket is made then disconnected.
-   */
-  const awaitingConnection = [];
+  const awaitingConnection = Pushable();
+  const outgoingConnectionsEstablished = Pushable();
+  const outgoingAddressEstablished = Pushable();
 
   let controlSocketSource = Pushable();
 
@@ -50,10 +42,7 @@ function makeManager (opts) {
   function connect(bluetoothAddress, cb) {
     console.log("Attempting outgoing connection to bluetooth address: " + bluetoothAddress);
 
-    awaitingConnection.push({
-      address: bluetoothAddress,
-      cb
-    });
+    awaitingConnection.push(cb);
 
     // Tell the native android code to make the outgoing bluetooth connection and then connect back
     // on the socket
@@ -108,6 +97,29 @@ function makeManager (opts) {
     console.log("Created control socket");
   }
 
+  function makeFullyEstablishOutgoingConnections() {
+
+    pull(
+      zip(awaitingConnection, outgoingConnectionsEstablished, outgoingAddressEstablished),
+      pull.drain( results => {
+
+        let cb = results[0];
+        let stream = results[1].stream;
+        let connectionOutcome = results[2];
+
+        let outgoingAddress = connectionOutcome.address;
+
+        if (connectionOutcome.success) {
+          console.log("Calling back multiserve with successful outgoing connection to " + outgoingAddress);
+          cb(null, stream);
+        } else {
+          console.log("Calling back with unsuccessful connection to multiserver for address: " + outgoingAddress)
+          cb(new Error(connectionOutcome.failureReason));
+        }
+      })
+    );
+  }
+
   function logOutgoingCommand(command) {
     console.log("Sending outgoing command to control server");
     console.log(command);
@@ -125,23 +137,31 @@ function makeManager (opts) {
     if (commandName === "connected" && !command.arguments.isIncoming) {
       // The initial stream connection is just to the Unix socket. We don't know if that socket is proxying
       // the bluetooth connection successfully until we receive an event to tell us it's connected.
-      var awaiting = awaitingConnection.shift();
 
-      var addr = "bt:" + command.arguments.remoteAddress;
+      var addr = "bt:" + command.arguments.remoteAddress.split(":").join("");
       console.log("Setting outgoing stream address to " + addr);
 
-      awaiting.stream.address = addr;
-      awaiting.cb(null, awaiting.stream);
+      var result = {
+        success: true,
+        address: addr
+      }
+
+      outgoingAddressEstablished.push(result);
     } else if (commandName === "connected" && command.arguments.isIncoming) {
-      var incomingAddr = "bt:" + command.arguments.remoteAddress;
+      var incomingAddr = "bt:" + command.arguments.remoteAddress.split(":").join("");
       console.log("Setting incoming connection stream address to: " + incomingAddr);
       lastIncomingStream.address = incomingAddr;
       onIncomingConnection(null, lastIncomingStream);
     } else if (commandName === "connectionFailure" && !command.arguments.isIncoming) {
-      var awaiting = awaitingConnection.shift();
       var reason = command.arguments.reason;
+
+      var result = {
+        success: false,
+        address: command.arguments.remoteAddress.split(":").join(""),
+        failureReason: reason
+      }
       
-      awaiting.cb(new Error(reason), null);
+      outgoingAddressEstablished.push(result);
 
     } else if (commandName === "disconnected") {
 
@@ -208,9 +228,14 @@ function makeManager (opts) {
     }
 
     var server = net.createServer(function(stream){
-      console.log("bluetooth: Outgoing connection established proxy connection, adding to awaiting object.")
+      console.log("bluetooth: Outgoing connection established proxy connection.")
 
-      awaitingConnection[0].stream = logDuplexStreams(toPull.duplex(stream));
+      var item = {
+        stream: logDuplexStreams(toPull.duplex(stream))
+      }
+
+      outgoingConnectionsEstablished.push(item);
+
     }).listen(address);
   }
 
@@ -456,6 +481,7 @@ function makeManager (opts) {
 
   listenForOutgoingEstablished();
   makeControlSocket();
+  makeFullyEstablishOutgoingConnections();
 
   return {
     connect,
