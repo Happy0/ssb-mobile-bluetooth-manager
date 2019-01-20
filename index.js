@@ -153,7 +153,6 @@ function makeManager (opts) {
       lastIncomingStream.address = incomingAddr;
       onIncomingConnection(null, lastIncomingStream);
     } else if (commandName === "connectionFailure" && !command.arguments.isIncoming) {
-      var awaiting = awaitingConnection.shift();
       var reason = command.arguments.reason;
 
       var result = {
