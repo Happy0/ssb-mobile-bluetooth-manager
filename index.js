@@ -288,7 +288,7 @@ function makeManager (opts) {
       // bridge. See the 'onCommand' function.
       
       incomingConnectionEstablished.push({
-        stream: logDuplexStreams(incomingStream)
+        stream: logDuplexStreams( toPull.duplex(incomingStream) )
       })
 
     }).listen(socket);
