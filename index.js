@@ -134,9 +134,6 @@ function makeManager (opts) {
 
         stream.address = address;
 
-        console.log("Stream: ");
-        console.log(stream)
-
         console.log("Calling back to multiserve with incoming bluetooth connection from " + address);
         onIncomingConnection(null, stream);
       })
