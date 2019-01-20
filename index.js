@@ -24,6 +24,9 @@ function makeManager (opts) {
   const outgoingConnectionsEstablished = Pushable();
   const outgoingAddressEstablished = Pushable();
 
+  const incomingConnectionEstablished = Pushable();
+  const incomingAddressEstablished = Pushable();
+
   let controlSocketSource = Pushable();
 
   let awaitingDevicesCb = null;
@@ -97,7 +100,10 @@ function makeManager (opts) {
     console.log("Created control socket");
   }
 
-  function makeFullyEstablishOutgoingConnections() {
+  function makeFullyEstablishConnectionsHandler() {
+
+    // It's unpredictable when each of these things happen, but they do happen sequentially
+    // within their stream, so we zip them together and do the necessary action when ready
 
     pull(
       zip(awaitingConnection, outgoingConnectionsEstablished, outgoingAddressEstablished),
@@ -108,6 +114,7 @@ function makeManager (opts) {
         let connectionOutcome = results[2];
 
         let outgoingAddress = connectionOutcome.address;
+        stream.address = outgoingAddress;
 
         if (connectionOutcome.success) {
           console.log("Calling back multiserve with successful outgoing connection to " + outgoingAddress);
@@ -118,6 +125,20 @@ function makeManager (opts) {
         }
       })
     );
+
+    pull(
+      zip(incomingConnectionEstablished, incomingAddressEstablished),
+      pull.drain(results => {
+        let stream = results[0].stream;
+        let address = results[1].address;
+
+        stream.address = address;
+
+        console.log("Calling back to multiserve with incoming bluetooth connection from " + address);
+        onIncomingConnection(null, stream);
+      })
+    )
+
   }
 
   function logOutgoingCommand(command) {
@@ -150,8 +171,11 @@ function makeManager (opts) {
     } else if (commandName === "connected" && command.arguments.isIncoming) {
       var incomingAddr = "bt:" + command.arguments.remoteAddress.split(":").join("");
       console.log("Setting incoming connection stream address to: " + incomingAddr);
-      lastIncomingStream.address = incomingAddr;
-      onIncomingConnection(null, lastIncomingStream);
+      
+      incomingAddressEstablished.push({
+        address: incomingAddr
+      });
+
     } else if (commandName === "connectionFailure" && !command.arguments.isIncoming) {
       var reason = command.arguments.reason;
 
@@ -255,11 +279,15 @@ function makeManager (opts) {
       
     }
 
-    var server = net.createServer(function (stream) {
+    var server = net.createServer(function (incomingStream) {
 
       // We only call back with the connection when we later receive the address over the control
       // bridge. See the 'onCommand' function.
-      lastIncomingStream = logDuplexStreams(toPull.duplex(stream));
+      
+      incomingConnectionEstablished.push({
+        stream: logDuplexStreams( toPull.duplex(incomingStream) )
+      })
+
     }).listen(socket);
 
     server.on('close', function (e) {
@@ -481,7 +509,7 @@ function makeManager (opts) {
 
   listenForOutgoingEstablished();
   makeControlSocket();
-  makeFullyEstablishOutgoingConnections();
+  makeFullyEstablishConnectionsHandler();
 
   return {
     connect,
