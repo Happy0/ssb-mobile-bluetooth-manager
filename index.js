@@ -32,7 +32,6 @@ function makeManager (opts) {
   let awaitingDevicesCb = null;
   let awaitingDiscoverableResponse = null;
   let awaitingIsEnabledResponse = null;
-  let lastIncomingStream = null;
   let onIncomingConnection = null;
   let awaitingOwnMacAddressResponse = null;
 
@@ -383,6 +382,8 @@ function makeManager (opts) {
   function makeDeviceDiscoverable(forTime, cb) {
     console.log("Making device discoverable");
 
+
+
     if (awaitingDiscoverableResponse != null) {
       cb(
         {
@@ -392,21 +393,31 @@ function makeManager (opts) {
         }
       )
     } else {
-      awaitingDiscoverableResponse = cb;
+      awaitingDiscoverableResponse = (err, result) => {
 
-      var payload = {
-        "id": opts.myIdent
-      };
+        if (err) {
+          cb(new Error(err.description), null);
+        } else {
 
-      controlSocketSource.push({
-        "command": "startMetadataService",
-        "arguments": {
-          "serviceName": "scuttlebuttMetadata",
-          "service": metadataServiceUUID,
-          "payload": payload,
-          "timeSeconds": forTime
+          var payload = {
+            "id": opts.myIdent
+          };
+
+          // Only start the metadata service once the device is discoverable
+          controlSocketSource.push({
+            "command": "startMetadataService",
+            "arguments": {
+              "serviceName": "scuttlebuttMetadata",
+              "service": metadataServiceUUID,
+              "payload": payload,
+              "timeSeconds": forTime
+            }
+          });
+
+          cb(null, result);
         }
-      })
+
+      };
 
       controlSocketSource.push({
         "command": "makeDiscoverable",
