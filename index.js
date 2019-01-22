@@ -403,6 +403,9 @@ function makeManager (opts) {
             "id": opts.myIdent
           };
 
+          // The service should stop when the device is no longer discoverable
+          var serviceNeededForSeconds = (result.discoverableUntil - Date.now()) * 1000;
+
           // Only start the metadata service once the device is discoverable
           controlSocketSource.push({
             "command": "startMetadataService",
@@ -410,7 +413,7 @@ function makeManager (opts) {
               "serviceName": "scuttlebuttMetadata",
               "service": metadataServiceUUID,
               "payload": payload,
-              "timeSeconds": forTime
+              "timeSeconds": serviceNeededForSeconds
             }
           });
 
