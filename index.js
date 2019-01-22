@@ -404,7 +404,7 @@ function makeManager (opts) {
           };
 
           // The service should stop when the device is no longer discoverable
-          var serviceNeededForSeconds = (result.discoverableUntil - Date.now()) / 1000;
+          var serviceNeededForSeconds = Math.ceil((result.discoverableUntil - Date.now()) / 1000);
 
           // Only start the metadata service once the device is discoverable
           controlSocketSource.push({
