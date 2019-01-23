@@ -13,6 +13,7 @@
   "author": "Gordon Martin",
   "license": "MIT",
   "dependencies": {
+    "debug": "^4.1.1",
     "pull-json-doubleline": "^2.0.0",
     "pull-stream": "^3.6.9",
     "pull-zip": "^2.0.1",

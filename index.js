@@ -10,6 +10,8 @@ const zip  = require('pull-zip')
 
 const uuidv4 = require('uuid/v4');
 
+const debug = require('debug')('ssb-mobile-bluetooth-manager');
+
 function makeManager (opts) {
 
   if (!opts || !opts.socketFolderPath) {
@@ -42,7 +44,7 @@ function makeManager (opts) {
   var metadataServiceUUID = "b4721184-46dc-4314-b031-bf52c2b197f3";
 
   function connect(bluetoothAddress, cb) {
-    console.log("Attempting outgoing connection to bluetooth address: " + bluetoothAddress);
+    debug("Attempting outgoing connection to bluetooth address: " + bluetoothAddress);
 
     awaitingConnection.push(cb);
 
@@ -93,10 +95,10 @@ function makeManager (opts) {
     controlSocketEstablished = true;
 
     controlSocket.on('closed', function() {
-      console.log("Control socket closed");
+      debug("Control socket closed");
     })
 
-    console.log("Created control socket");
+    debug("Created control socket");
   }
 
   function makeFullyEstablishConnectionsHandler() {
@@ -116,10 +118,10 @@ function makeManager (opts) {
         stream.address = outgoingAddress;
 
         if (connectionOutcome.success) {
-          console.log("Calling back multiserve with successful outgoing connection to " + outgoingAddress);
+          debug("Calling back multiserve with successful outgoing connection to " + outgoingAddress);
           cb(null, stream);
         } else {
-          console.log("Calling back with unsuccessful connection to multiserver for address: " + outgoingAddress)
+          debug("Calling back with unsuccessful connection to multiserver for address: " + outgoingAddress)
           cb(new Error(connectionOutcome.failureReason));
         }
       })
@@ -133,7 +135,7 @@ function makeManager (opts) {
 
         stream.address = address;
 
-        console.log("Calling back to multiserve with incoming bluetooth connection from " + address);
+        debug("Calling back to multiserve with incoming bluetooth connection from " + address);
         onIncomingConnection(null, stream);
       })
     )
@@ -141,16 +143,16 @@ function makeManager (opts) {
   }
 
   function logOutgoingCommand(command) {
-    console.log("Sending outgoing command to control server");
-    console.log(command);
+    debug("Sending outgoing command to control server");
+    debug(command);
 
     return command;
   }
 
   function doCommand (command) {
 
-    console.log("Received command: ");
-    console.dir(command);
+    debug("Received command: ");
+    debug(command);
 
     let commandName = command.command;
 
@@ -159,7 +161,7 @@ function makeManager (opts) {
       // the bluetooth connection successfully until we receive an event to tell us it's connected.
 
       var addr = "bt:" + command.arguments.remoteAddress.split(":").join("");
-      console.log("Setting outgoing stream address to " + addr);
+      debug("Setting outgoing stream address to " + addr);
 
       var result = {
         success: true,
@@ -169,7 +171,7 @@ function makeManager (opts) {
       outgoingAddressEstablished.push(result);
     } else if (commandName === "connected" && command.arguments.isIncoming) {
       var incomingAddr = "bt:" + command.arguments.remoteAddress.split(":").join("");
-      console.log("Setting incoming connection stream address to: " + incomingAddr);
+      debug("Setting incoming connection stream address to: " + incomingAddr);
       
       incomingAddressEstablished.push({
         address: incomingAddr
@@ -192,8 +194,8 @@ function makeManager (opts) {
       var currentTime = Date.now();
       var arguments = command.arguments;
 
-      console.log("Updating nearby source");
-      console.log(arguments);
+      debug("Updating nearby source");
+      debug(arguments);
 
       if (arguments.error === true) {
         awaitingDevicesCb(arguments, null);
@@ -251,7 +253,7 @@ function makeManager (opts) {
     }
 
     var server = net.createServer(function(stream){
-      console.log("bluetooth: Outgoing connection established proxy connection.")
+      debug("bluetooth: Outgoing connection established proxy connection.")
 
       var item = {
         stream: logDuplexStreams(toPull.duplex(stream))
@@ -290,13 +292,13 @@ function makeManager (opts) {
     }).listen(socket);
 
     server.on('close', function (e) {
-      console.log("bt_bridge socket closed: " + e);
+      debug("bt_bridge socket closed: " + e);
     });
 
     started = true;
     
     return function () {
-      console.log("Server close?");
+      debug("Server close?");
     }
   }
 
@@ -331,19 +333,19 @@ function makeManager (opts) {
   
           count = count + 1;
     
-          console.log("getValidAddresses count: " + count)
+          debug("getValidAddresses count: " + count)
     
           if (!err) {
-            console.log(device.remoteAddress + " is available for scuttlebutt bluetooth connections");
+            debug(device.remoteAddress + " is available for scuttlebutt bluetooth connections");
             device.id = res.id;
             results.push(device);
           }
     
           if (count === devices.length) {
-            console.log("Calling back (get valid addresses)...");
-            console.log("Valid addresses:");
+            debug("Calling back (get valid addresses)...");
+            debug("Valid addresses:");
 
-            console.log(results);
+            debug(results);
             cb(null, {
               "discovered": results,
               "lastUpdate": Date.now()
@@ -359,8 +361,8 @@ function makeManager (opts) {
     return pull(
       nearbyDevices(refreshInterval),
       pull.asyncMap( (result, cb) => {
-        console.log("Result is? ");
-        console.log(result);
+        debug("Result is? ");
+        debug(result);
 
         getValidAddresses(result.discovered, cb)
       })
@@ -380,7 +382,7 @@ function makeManager (opts) {
   }
 
   function makeDeviceDiscoverable(forTime, cb) {
-    console.log("Making device discoverable");
+    debug("Making device discoverable");
 
 
 
@@ -503,14 +505,14 @@ function makeManager (opts) {
 
       duplexStream.source = pull(duplexStream.source, pull.map(
         buff => {
-          console.log( "[source] " + buff.toString() )
+          debug( "[source] " + buff.toString() )
           return buff;
         }
       ));
 
       duplexStream.sink = pull(
         pull.map(outgoingBuff => {
-          console.log( "[sink] " + outgoingBuff.toString() )
+          debug( "[sink] " + outgoingBuff.toString() )
           return outgoingBuff;
         }),
         duplexStream.sink
