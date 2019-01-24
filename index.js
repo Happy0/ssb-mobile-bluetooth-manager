@@ -26,9 +26,9 @@ function makeManager (opts) {
     throw new Error("ssb-mobile-bluetooth-manager must be configured with the myIdent option.")
   }
 
-  const EVENT_STARTED_SCAN = "started";
+  const EVENT_STARTED_SCAN = "startedBluetoothScan";
   const EVENT_FOUND_BLUETOOTH_DEVICES = "btDevicesFound";
-  const EVENT_FINISHED_FINDING_BLUETOOTH_DEVICES = "ended";
+  const EVENT_FINISHED_FINDING_BLUETOOTH_DEVICES = "endedBluetoothScan";
   const EVENT_CHECKING_DEVICES = "checkingForScuttlebutt";
   const EVENT_ENDED_CHECKING = "endedChecking";
 
