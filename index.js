@@ -12,7 +12,11 @@ const uuidv4 = require('uuid/v4');
 
 const debug = require('debug')('ssb-mobile-bluetooth-manager');
 
+const EventEmitter = require('events');
+
 function makeManager (opts) {
+
+  const bluetoothScanStateEmitter = new EventEmitter();
 
   if (!opts || !opts.socketFolderPath) {
     throw new Error("ssb-mobile-bluetooth-manager must be configured with a socketFolderPath option.");
@@ -21,6 +25,12 @@ function makeManager (opts) {
   if (!opts || !opts.myIdent) {
     throw new Error("ssb-mobile-bluetooth-manager must be configured with the myIdent option.")
   }
+
+  const EVENT_STARTED_SCAN = "started";
+  const EVENT_FOUND_BLUETOOTH_DEVICES = "btDevicesFound";
+  const EVENT_FINISHED_FINDING_BLUETOOTH_DEVICES = "ended";
+  const EVENT_CHECKING_DEVICES = "checkingForScuttlebutt";
+  const EVENT_ENDED_CHECKING = "endedChecking";
 
   const awaitingConnection = Pushable();
   const outgoingConnectionsEstablished = Pushable();
@@ -204,6 +214,9 @@ function makeManager (opts) {
           lastUpdate: currentTime,
           discovered: arguments.devices
         }
+
+        bluetoothScanStateEmitter.emit(EVENT_FOUND_BLUETOOTH_DEVICES, nearBy);
+        bluetoothScanStateEmitter.emit(EVENT_FINISHED_FINDING_BLUETOOTH_DEVICES);
   
         awaitingDevicesCb(null, nearBy);
       }
@@ -332,8 +345,7 @@ function makeManager (opts) {
         getMetadataForDevice(device.remoteAddress, (err, res) => {
   
           count = count + 1;
-    
-          debug("getValidAddresses count: " + count)
+          debug("getValidAddresses count: " + count);
     
           if (!err) {
             debug(device.remoteAddress + " is available for scuttlebutt bluetooth connections");
@@ -344,16 +356,34 @@ function makeManager (opts) {
           if (count === devices.length) {
             debug("Calling back (get valid addresses)...");
             debug("Valid addresses:");
-
             debug(results);
+
+            bluetoothScanStateEmitter.emit(EVENT_CHECKING_DEVICES, {
+              "checked": count,
+              "total": devices.length,
+              "discovered": results,
+              "found": results.length,
+              "remaining": (devices.length - count),
+              "lastUpdate": Date.now()
+            });
+
             cb(null, {
               "discovered": results,
+              "lastUpdate": Date.now()
+            });
+          } else {
+            bluetoothScanStateEmitter.emit(EVENT_CHECKING_DEVICES, {
+              "checked": count,
+              "total": devices.length,
+              "discovered": results,
+              "found": results.length,
+              "remaining": (devices.length - count),
               "lastUpdate": Date.now()
             });
           }
     
         });
-      }, num * 2000);
+      }, num * 1000);
     })
   }
 
@@ -361,10 +391,15 @@ function makeManager (opts) {
     return pull(
       nearbyDevices(refreshInterval),
       pull.asyncMap( (result, cb) => {
-        debug("Result is? ");
+
+        debug("Nearby bluetooth devices.");
         debug(result);
 
         getValidAddresses(result.discovered, cb)
+      }),
+      pull.map(result => {
+        bluetoothScanStateEmitter.emit(EVENT_ENDED_CHECKING, result);
+        return result;
       })
     )
   }
@@ -375,6 +410,7 @@ function makeManager (opts) {
       pull.infinite(),
       pull.asyncMap((next, cb) => {
         setTimeout(() => {
+          bluetoothScanStateEmitter.emit(EVENT_STARTED_SCAN);
           getLatestNearbyDevices(cb)
         }, refreshInterval)
       })
@@ -470,6 +506,67 @@ function makeManager (opts) {
 
   }
 
+  function bluetoothScanState() {
+
+    var source = Pushable(function (closed) {
+      bluetoothScanStateEmitter.removeListener(onScanStarted);
+      bluetoothScanStateEmitter.removeListener(onBtDevicesFound);
+      bluetoothScanStateEmitter.removeListener(onFinishedFindingBluetoothDevices);
+      bluetoothScanStateEmitter.removeListener(onCheckingDevices);
+      bluetoothScanStateEmitter.removeListener(onFinishedCheckingDevices);
+    });
+
+    function onScanStarted()  {
+      var event = {
+        "state": EVENT_STARTED_SCAN
+      }
+
+      source.push(event);
+    };
+
+    function onBtDevicesFound (devices) {
+      var event = {
+        "state": EVENT_FOUND_BLUETOOTH_DEVICES,
+        "update": devices
+      }
+
+      source.push(event);
+    }
+
+    function onFinishedFindingBluetoothDevices() {
+      var event = {
+        "state": EVENT_FINISHED_FINDING_BLUETOOTH_DEVICES
+      }
+
+      source.push(event);
+    }
+
+    function onCheckingDevices (update) {
+      var event = {
+        "state": EVENT_CHECKING_DEVICES,
+        "update": update
+      }
+
+      source.push(event);
+    }
+
+    function onFinishedCheckingDevices() {
+      var event = {
+        "state": EVENT_ENDED_CHECKING
+      }
+
+      source.push(event);
+    }
+
+    bluetoothScanStateEmitter.on(EVENT_STARTED_SCAN, onScanStarted);
+    bluetoothScanStateEmitter.on(EVENT_FOUND_BLUETOOTH_DEVICES, onBtDevicesFound);
+    bluetoothScanStateEmitter.on(EVENT_FINISHED_FINDING_BLUETOOTH_DEVICES, onFinishedFindingBluetoothDevices);
+    bluetoothScanStateEmitter.on(EVENT_CHECKING_DEVICES, onCheckingDevices);
+    bluetoothScanStateEmitter.on(EVENT_ENDED_CHECKING, onFinishedCheckingDevices);
+
+    return source;    
+  }
+
   function getOwnMacAddress(cb) {
     if (awaitingOwnMacAddressResponse) {
       return makeError("alreadyAwaitingMacAddress", "Already awaiting 'ownMacAddress' response");
@@ -531,6 +628,7 @@ function makeManager (opts) {
     connect,
     listenForIncomingConnections,
     nearbyDevices,
+    bluetoothScanState,
     nearbyScuttlebuttDevices,
     makeDeviceDiscoverable,
     getMetadataForDevice,
