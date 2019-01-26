@@ -26,6 +26,24 @@ function makeManager (opts) {
     throw new Error("ssb-mobile-bluetooth-manager must be configured with the myIdent option.")
   }
 
+  if (!opts || !opts.metadataServiceUUID) {
+    throw new Error("ssb-mobile-bluetooth-manager must be configured with a metadataServiceUUID option.");
+  }
+
+  if (!opts || !opts.controlSocketFilename) {
+    throw new Error("ssb-mobile-bluetooth-manager must be configured with a controlSocketFilename option.");
+  }
+
+  if (!opts || !opts.incomingSocketFilename) {
+    throw new Error("ssb-mobile-bluetooth-manager must be configured with a incomingSocketFilename option.");
+  }
+
+  if (!opts || !opts.outgoingSocketFilename) {
+    throw new Error("ssb-mobile-bluetooth-manager must be configured with a outgoingSocketFilename option.");
+  }
+
+  
+
   const EVENT_STARTED_SCAN = "startedBluetoothScan";
   const EVENT_FOUND_BLUETOOTH_DEVICES = "btDevicesFound";
   const EVENT_FINISHED_FINDING_BLUETOOTH_DEVICES = "endedBluetoothScan";
@@ -51,7 +69,7 @@ function makeManager (opts) {
 
   }
 
-  var metadataServiceUUID = "b4721184-46dc-4314-b031-bf52c2b197f3";
+  const metadataServiceUUID = opts.metadataServiceUUID;
 
   function connect(bluetoothAddress, cb) {
     debug("Attempting outgoing connection to bluetooth address: " + bluetoothAddress);
@@ -75,7 +93,7 @@ function makeManager (opts) {
   function makeControlSocket() {
     if (controlSocketEstablished) return;
 
-    var address = opts.socketFolderPath + "/manyverse_bt_control.sock";
+    var address = opts.socketFolderPath + "/" + opts.controlSocketFilename;
 
     try {
       fs.unlinkSync(address);
@@ -257,7 +275,7 @@ function makeManager (opts) {
   }
 
   function listenForOutgoingEstablished() {
-    var address = opts.socketFolderPath + "/manyverse_bt_outgoing.sock";
+    var address = opts.socketFolderPath + "/" + opts.outgoingSocketFilename;
 
     try {
       fs.unlinkSync(address);
@@ -286,7 +304,7 @@ function makeManager (opts) {
 
     if(started) return
     
-    var socket = opts.socketFolderPath + "/manyverse_bt_incoming.sock";
+    var socket = opts.socketFolderPath + "/" + opts.incomingSocketFilename;
     try {
       fs.unlinkSync(socket);
     } catch (error) {
