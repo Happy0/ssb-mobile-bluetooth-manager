@@ -355,6 +355,16 @@ function makeManager (opts) {
   
     var results = [];
     var count = 0;
+
+    if (devices.length === 0) {
+      debug("No nearby devices to check for scuttlebutt metadata service.");
+      cb(null, {
+        "discovered": results,
+        "lastUpdate": Date.now()
+      });
+
+      return;
+    }
   
     devices.forEach( (device, num) => {
   
