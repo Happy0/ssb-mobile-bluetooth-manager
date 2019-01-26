@@ -208,7 +208,7 @@ function makeManager (opts) {
       debug(arguments);
 
       if (arguments.error === true) {
-        awaitingDevicesCb(arguments, null);
+        awaitingDevicesCb(new Error(arguments.description), null);
       } else {
         var nearBy = {
           lastUpdate: currentTime,
@@ -245,7 +245,7 @@ function makeManager (opts) {
       var cb = awaitingMetadata[requestId];
 
       if (arguments.error === true) {
-        cb(arguments.error, null);
+        cb(new Error(arguments.error.description), null);
       } else {
         cb(null, arguments.metadata);
       }
@@ -420,16 +420,8 @@ function makeManager (opts) {
   function makeDeviceDiscoverable(forTime, cb) {
     debug("Making device discoverable");
 
-
-
     if (awaitingDiscoverableResponse != null) {
-      cb(
-        {
-          "error": true,
-          "errorCode": "alreadyInProgress",
-          "description": "Already requesting to make device discoverable."
-        }
-      )
+      cb(new Error("Already requesting to make device discoverable."), null)
     } else {
       awaitingDiscoverableResponse = (err, result) => {
 
@@ -471,13 +463,7 @@ function makeManager (opts) {
 
   function isEnabled(cb) {
     if (awaitingIsEnabledResponse) {
-      cb(
-        {
-          "error": true,
-          "errorCode": "alreadyInProgress",
-          "description": "Already awaiting 'isEnabled' response."
-        }
-      );
+      cb(new Error("Already awaiting 'isEnabled' response."), null);
     } else {
       awaitingIsEnabledResponse = cb;
 
