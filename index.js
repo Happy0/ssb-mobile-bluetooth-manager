@@ -14,7 +14,7 @@ const debug = require('debug')('ssb-mobile-bluetooth-manager');
 
 const EventEmitter = require('events');
 
-const Aborter = require('pull-abortable');
+const Abortable = require('pull-abortable');
 
 function makeManager (opts) {
 
@@ -445,7 +445,14 @@ function makeManager (opts) {
     if (nearbyListeners === 0) {
       debug("Starting scanning for nearby bluetooth devices");
 
-      timer = setInterval( () => {
+      var doScan = () => {
+
+        if (nearbyListeners === 0 && timer !== null) {
+          debug("No more listeners for nearby devices, stopping scan");
+
+          return;
+        }
+
         bluetoothScanStateEmitter.emit(EVENT_STARTED_SCAN);
 
         getLatestNearbyDevices((err, result) => {
@@ -458,21 +465,22 @@ function makeManager (opts) {
 
           } else {
             sources.forEach(source => source.push(result));
+
+            timer = setTimeout( () => {
+              doScan()
+            }, refreshInterval);
           }
 
         });
-      }, refreshInterval);
+      }
+
+      doScan();
     }
 
     nearbyListeners = nearbyListeners + 1;
 
     var source = Pushable(function closed() {
       nearbyListeners = nearbyListeners - 1;
-
-      if (nearbyListeners === 0) {
-        debug("No more listeners for nearby devices, stopping scan");
-        clearInterval(timer);
-      }
 
       var idx = sources.indexOf(source);
 
