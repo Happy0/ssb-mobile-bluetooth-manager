@@ -523,6 +523,9 @@ function makeManager (opts) {
   function bluetoothScanState() {
 
     var source = Pushable(function (closed) {
+
+      console.log("w0o0o00o, closed was called?");
+
       bluetoothScanStateEmitter.removeListener(onScanStarted);
       bluetoothScanStateEmitter.removeListener(onBtDevicesFound);
       bluetoothScanStateEmitter.removeListener(onFinishedFindingBluetoothDevices);
