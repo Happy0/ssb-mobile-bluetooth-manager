@@ -14,6 +14,9 @@ const debug = require('debug')('ssb-mobile-bluetooth-manager');
 
 const EventEmitter = require('events');
 
+const Abortable = require('pull-abortable');
+const pullError = require('pull-stream/sources/error');
+
 function makeManager (opts) {
 
   const bluetoothScanStateEmitter = new EventEmitter();
@@ -416,10 +419,10 @@ function makeManager (opts) {
   }
 
   function nearbyScuttlebuttDevices(refreshInterval) {
+
     return pull(
       nearbyDevices(refreshInterval),
       pull.asyncMap( (result, cb) => {
-
         debug("Nearby bluetooth devices.");
         debug(result);
 
@@ -432,17 +435,32 @@ function makeManager (opts) {
     )
   }
 
+  var nearbyListenersCount = 0;
   function nearbyDevices(refreshInterval) {
 
-    return pull(
-      pull.infinite(),
-      pull.asyncMap((next, cb) => {
-        setTimeout(() => {
-          bluetoothScanStateEmitter.emit(EVENT_STARTED_SCAN);
-          getLatestNearbyDevices(cb)
-        }, refreshInterval)
-      })
-    )
+    nearbyListenersCount = nearbyListenersCount + 1;
+
+    const abortable = Abortable( () => {
+      nearbyListenersCount = nearbyListenersCount - 1;
+
+      debug("nearBy stream ended. Listener count: " + nearbyListenersCount);
+    });
+
+    if (nearbyListenersCount > 1) {
+      debug("More than one nearbyDevices listener: erroring");
+      return pullError("For now, there may only be one nearby bluetooth devices listener at once.")
+    } else {
+      return pull(
+        pull.infinite(),
+        abortable,
+        pull.asyncMap((next, cb) => {
+          setTimeout(() => {
+            bluetoothScanStateEmitter.emit(EVENT_STARTED_SCAN);
+            getLatestNearbyDevices(cb)
+          }, refreshInterval)
+        })
+      )
+    }
   }
 
   function makeDeviceDiscoverable(forTime, cb) {
@@ -524,7 +542,7 @@ function makeManager (opts) {
 
     var source = Pushable(function (closed) {
 
-      console.log("Closing bluetooth scan lifecycle event listeners.");
+      debug("Closing bluetooth scan lifecycle event listeners.");
 
       bluetoothScanStateEmitter.removeListener(EVENT_STARTED_SCAN, onScanStarted);
       bluetoothScanStateEmitter.removeListener(EVENT_FOUND_BLUETOOTH_DEVICES, onBtDevicesFound);
