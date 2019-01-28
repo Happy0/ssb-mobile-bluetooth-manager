@@ -445,32 +445,17 @@ function makeManager (opts) {
     )
   }
 
-  var nearbyListenersCount = 0;
   function nearbyDevices(refreshInterval) {
-
-    nearbyListenersCount = nearbyListenersCount + 1;
-
-    const abortable = Abortable( () => {
-      nearbyListenersCount = nearbyListenersCount - 1;
-
-      debug("nearBy stream ended. Listener count: " + nearbyListenersCount);
-    });
-
-    if (nearbyListenersCount > 1) {
-      debug("More than one nearbyDevices listener: erroring");
-      return pullError("For now, there may only be one nearby bluetooth devices listener at once.")
-    } else {
-      return pull(
-        pull.infinite(),
-        abortable,
-        pull.asyncMap((next, cb) => {
-          setTimeout(() => {
-            bluetoothScanStateEmitter.emit(EVENT_STARTED_SCAN);
-            getLatestNearbyDevices(cb)
-          }, refreshInterval)
-        })
-      )
-    }
+    return pull(
+      pull.infinite(),
+      abortable,
+      pull.asyncMap((next, cb) => {
+        setTimeout(() => {
+          bluetoothScanStateEmitter.emit(EVENT_STARTED_SCAN);
+          getLatestNearbyDevices(cb)
+        }, refreshInterval)
+      })
+    )
   }
 
   function makeDeviceDiscoverable(forTime, cb) {
