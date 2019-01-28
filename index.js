@@ -437,7 +437,6 @@ function makeManager (opts) {
 
   var nearbyListeners = 0;
   var sources = [];
-  var aborters = [];
 
   function nearbyDevices(refreshInterval) {
 
@@ -449,7 +448,6 @@ function makeManager (opts) {
 
         if (nearbyListeners === 0 && timer !== null) {
           debug("No more listeners for nearby devices, stopping scan");
-
           return;
         }
 
@@ -457,11 +455,10 @@ function makeManager (opts) {
 
         getLatestNearbyDevices((err, result) => {
           if (err) {
-            aborters.forEach(aborter => aborter.abort(new Error(err)));
+            sources.forEach(source => source.end(err));
 
             nearbyListeners = 0;
             sources = [];
-            aborters = [];
 
           } else {
             sources.forEach(source => source.push(result));
@@ -480,21 +477,17 @@ function makeManager (opts) {
     nearbyListeners = nearbyListeners + 1;
 
     var source = Pushable(function closed() {
+      debug("Bluetooth nearby stream closed, removing source.")
       nearbyListeners = nearbyListeners - 1;
 
       var idx = sources.indexOf(source);
 
       sources.splice(idx, 1);
-      aborters.splice(idx, 1);
     });
 
-    var aborter = Abortable();
     sources.push(source);
-    aborters.push(aborter);
 
-    var abortableSource = pull(source, aborter);
-
-    return abortableSource;
+    return source;
   }
 
   function makeDeviceDiscoverable(forTime, cb) {
