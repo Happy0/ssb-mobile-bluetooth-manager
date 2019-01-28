@@ -14,6 +14,8 @@ const debug = require('debug')('ssb-mobile-bluetooth-manager');
 
 const EventEmitter = require('events');
 
+const Aborter = require('pull-abortable');
+
 function makeManager (opts) {
 
   const bluetoothScanStateEmitter = new EventEmitter();
@@ -416,6 +418,7 @@ function makeManager (opts) {
   }
 
   function nearbyScuttlebuttDevices(refreshInterval) {
+
     return pull(
       nearbyDevices(refreshInterval),
       pull.asyncMap( (result, cb) => {
@@ -432,17 +435,58 @@ function makeManager (opts) {
     )
   }
 
+  var nearbyListeners = 0;
+  var sources = [];
+  var aborters = [];
+
   function nearbyDevices(refreshInterval) {
 
-    return pull(
-      pull.infinite(),
-      pull.asyncMap((next, cb) => {
-        setTimeout(() => {
-          bluetoothScanStateEmitter.emit(EVENT_STARTED_SCAN);
-          getLatestNearbyDevices(cb)
-        }, refreshInterval)
-      })
-    )
+    var timer = null;
+    if (nearbyListeners === 0) {
+      debug("Starting scanning for nearby bluetooth devices");
+
+      timer = setInterval( () => {
+        bluetoothScanStateEmitter.emit(EVENT_STARTED_SCAN);
+
+        getLatestNearbyDevices((err, result) => {
+          if (err) {
+            aborters.forEach(aborter => aborter.abort(new Error(error)));
+
+            nearbyListeners = 0;
+            sources = [];
+            aborters = [];
+
+          } else {
+            sources.forEach(source => source.push(result));
+          }
+
+        });
+      }, refreshInterval);
+    }
+
+    nearbyListeners = nearbyListeners + 1;
+
+    var source = Pushable(function closed() {
+      nearbyListeners = nearbyListeners - 1;
+
+      if (nearbyListeners === 0) {
+        debug("No more listeners for nearby devices, stopping scan");
+        clearInterval(timer);
+      }
+
+      var idx = sources.indexOf(source);
+
+      sources.splice(idx, 1);
+      aborters.splice(idx, 1);
+    });
+
+    var aborter = Abortable();
+    sources.push(source);
+    aborters.push(aborter);
+
+    var abortableSource = pull(source, aborter);
+
+    return abortableSource;
   }
 
   function makeDeviceDiscoverable(forTime, cb) {
