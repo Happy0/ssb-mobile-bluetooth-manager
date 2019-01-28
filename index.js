@@ -62,7 +62,10 @@ function makeManager (opts) {
 
   let controlSocketSource = Pushable();
 
-  let awaitingDevicesCb = null;
+  let awaitingDevices = {
+
+  };
+
   let awaitingDiscoverableResponse = null;
   let awaitingIsEnabledResponse = null;
   let onIncomingConnection = null;
@@ -228,8 +231,10 @@ function makeManager (opts) {
       debug("Updating nearby source");
       debug(arguments);
 
+      var requestId = command.requestId;
+
       if (arguments.error === true) {
-        awaitingDevicesCb(new Error(arguments.description), null);
+        awaitingDevices[requestId](new Error(arguments.description), null);
       } else {
         var nearBy = {
           lastUpdate: currentTime,
@@ -239,8 +244,10 @@ function makeManager (opts) {
         bluetoothScanStateEmitter.emit(EVENT_FOUND_BLUETOOTH_DEVICES, nearBy);
         bluetoothScanStateEmitter.emit(EVENT_FINISHED_FINDING_BLUETOOTH_DEVICES);
   
-        awaitingDevicesCb(null, nearBy);
+        awaitingDevices[requestId](null, nearBy);
       }
+
+      delete awaitingDevices[requestId];
     
     } else if (commandName === "discoverable") {
       var arguments = command.arguments;
@@ -336,12 +343,13 @@ function makeManager (opts) {
     }
   }
 
-  function refreshNearbyDevices() {
+  function refreshNearbyDevices(requestId) {
     // Tell the native android code to discover nearby devices. When it responds, we'll update the
     // 'nearBy devices' pull-stream source
 
     controlSocketSource.push({
       "command": "discoverDevices",
+      "requestId": requestId,
       "arguments": {
         
       }
@@ -349,9 +357,11 @@ function makeManager (opts) {
   }
 
   function getLatestNearbyDevices(cb) {
-    awaitingDevicesCb = cb;
+    var requestId = uuidv4();
 
-    refreshNearbyDevices();
+    awaitingDevices[requestId] = cb;
+
+    refreshNearbyDevices(requestId);
   }
 
   function getValidAddresses(devices, cb) {
