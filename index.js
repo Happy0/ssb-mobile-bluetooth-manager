@@ -524,13 +524,13 @@ function makeManager (opts) {
 
     var source = Pushable(function (closed) {
 
-      console.log("w0o0o00o, closed was called?");
+      console.log("Closing bluetooth scan lifecycle event listeners.");
 
-      bluetoothScanStateEmitter.removeListener(onScanStarted);
-      bluetoothScanStateEmitter.removeListener(onBtDevicesFound);
-      bluetoothScanStateEmitter.removeListener(onFinishedFindingBluetoothDevices);
-      bluetoothScanStateEmitter.removeListener(onCheckingDevices);
-      bluetoothScanStateEmitter.removeListener(onFinishedCheckingDevices);
+      bluetoothScanStateEmitter.removeListener(EVENT_STARTED_SCAN, onScanStarted);
+      bluetoothScanStateEmitter.removeListener(EVENT_FOUND_BLUETOOTH_DEVICES, onBtDevicesFound);
+      bluetoothScanStateEmitter.removeListener(EVENT_FINISHED_FINDING_BLUETOOTH_DEVICES, onFinishedFindingBluetoothDevices);
+      bluetoothScanStateEmitter.removeListener(EVENT_CHECKING_DEVICES, onCheckingDevices);
+      bluetoothScanStateEmitter.removeListener(EVENT_ENDED_CHECKING, onFinishedCheckingDevices);
     });
 
     function onScanStarted()  {
