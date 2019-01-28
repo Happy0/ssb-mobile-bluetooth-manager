@@ -457,7 +457,7 @@ function makeManager (opts) {
 
         getLatestNearbyDevices((err, result) => {
           if (err) {
-            aborters.forEach(aborter => aborter.abort(new Error(error)));
+            aborters.forEach(aborter => aborter.abort(new Error(err)));
 
             nearbyListeners = 0;
             sources = [];
