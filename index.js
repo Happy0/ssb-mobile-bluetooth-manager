@@ -14,9 +14,6 @@ const debug = require('debug')('ssb-mobile-bluetooth-manager');
 
 const EventEmitter = require('events');
 
-const Abortable = require('pull-abortable');
-const pullError = require('pull-stream/sources/error');
-
 function makeManager (opts) {
 
   const bluetoothScanStateEmitter = new EventEmitter();
@@ -448,7 +445,6 @@ function makeManager (opts) {
   function nearbyDevices(refreshInterval) {
     return pull(
       pull.infinite(),
-      abortable,
       pull.asyncMap((next, cb) => {
         setTimeout(() => {
           bluetoothScanStateEmitter.emit(EVENT_STARTED_SCAN);
