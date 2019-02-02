@@ -240,8 +240,6 @@ function makeManager (opts) {
         bluetoothScanStateEmitter.emit(EVENT_FINISHED_FINDING_BLUETOOTH_DEVICES);
   
         awaitingDevicesCb(null, nearBy);
-
-        awaitingDevicesCb = null;
       }
     
     } else if (commandName === "discoverable") {
