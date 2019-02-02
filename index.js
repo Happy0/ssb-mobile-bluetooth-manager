@@ -225,7 +225,10 @@ function makeManager (opts) {
       debug("Updating nearby source");
       debug(arguments);
 
-      if (arguments.error === true) {
+      if (arguments.error && arguments.errorCode === "bluetoothDisabled") {
+        debug("Wanted nearby bluetooth devices but bluetooth is disabled. Will call back once bluetooth is enabled again.");
+      }
+      else if (arguments.error === true) {
         awaitingDevicesCb(new Error(arguments.description), null);
       } else {
         var nearBy = {
@@ -237,6 +240,8 @@ function makeManager (opts) {
         bluetoothScanStateEmitter.emit(EVENT_FINISHED_FINDING_BLUETOOTH_DEVICES);
   
         awaitingDevicesCb(null, nearBy);
+
+        awaitingDevicesCb = null;
       }
     
     } else if (commandName === "discoverable") {
@@ -270,6 +275,15 @@ function makeManager (opts) {
 
       delete awaitingMetadata[requestId];
         
+    } else if (commandName === "bluetoothState" && command.arguments.isEnabled) {
+
+      debug("Bluetooth has been enabled.");
+
+      if (awaitingDevicesCb) {
+        debug("Was awaiting nearby devices callback but bluetooth was previously disabled. Making request again now.");
+        getLatestNearbyDevices(awaitingDevicesCb);
+      }
+
     }
 
   }
@@ -524,7 +538,7 @@ function makeManager (opts) {
 
     var source = Pushable(function (closed) {
 
-      console.log("Closing bluetooth scan lifecycle event listeners.");
+      debug("Closing bluetooth scan lifecycle event listeners.");
 
       bluetoothScanStateEmitter.removeListener(EVENT_STARTED_SCAN, onScanStarted);
       bluetoothScanStateEmitter.removeListener(EVENT_FOUND_BLUETOOTH_DEVICES, onBtDevicesFound);
