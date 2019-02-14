@@ -42,7 +42,13 @@ function makeManager (opts) {
     throw new Error("ssb-mobile-bluetooth-manager must be configured with a outgoingSocketFilename option.");
   }
 
-  
+  /* Scanning while connected to another bluetooth device slows down the connection, increases latency and makes it
+   * periodically disconnect, so we slow down the scan interval if we're gossiping with at least one other device. 
+   *
+   * As per the android docs: https://developer.android.com/guide/topics/connectivity/bluetooth#QueryPairedDevices
+   */
+  const scanRefreshIntervalWhenConnected = opts.scanRefreshIntervalWhenConnected || 60000; 
+  const connectedDevices = 0;
 
   const EVENT_STARTED_SCAN = "startedBluetoothScan";
   const EVENT_FOUND_BLUETOOTH_DEVICES = "btDevicesFound";
@@ -197,6 +203,10 @@ function makeManager (opts) {
       }
 
       outgoingAddressEstablished.push(result);
+
+      connectedDevices = connectedDevices + 1;
+      debug("Connected bluetooth devices is now: " + connectedDevices);
+
     } else if (commandName === "connected" && command.arguments.isIncoming) {
       var incomingAddr = "bt:" + command.arguments.remoteAddress.split(":").join("");
       debug("Setting incoming connection stream address to: " + incomingAddr);
@@ -204,6 +214,9 @@ function makeManager (opts) {
       incomingAddressEstablished.push({
         address: incomingAddr
       });
+
+      connectedDevices = connectedDevices + 1;
+      debug("Connected bluetooth devices is now: " + connectedDevices);
 
     } else if (commandName === "connectionFailure" && !command.arguments.isIncoming) {
       var reason = command.arguments.reason;
@@ -217,6 +230,8 @@ function makeManager (opts) {
       outgoingAddressEstablished.push(result);
 
     } else if (commandName === "disconnected") {
+      debug("Connected bluetooth devices is now: " + connectedDevices)
+      connectedDevices = connectedDevices - 1;
 
     } else if (commandName === "discovered") {
       var currentTime = Date.now();
@@ -449,10 +464,20 @@ function makeManager (opts) {
     return pull(
       pull.infinite(),
       pull.asyncMap((next, cb) => {
+
+        var nextScanAfter = refreshInterval;
+
+        if (connectedDevices > 0) {
+          debug("Connected device count is " + connectedDevices + ". Next scan will start after " + scanRefreshIntervalWhenConnected + " milliseconds");
+          nextScanAfter = scanRefreshIntervalWhenConnected;
+        } else {
+          debug("Starting next scan after: " + nextScanAfter);
+        }
+
         setTimeout(() => {
           bluetoothScanStateEmitter.emit(EVENT_STARTED_SCAN);
           getLatestNearbyDevices(cb)
-        }, refreshInterval)
+        }, nextScanAfter)
       })
     )
   }
