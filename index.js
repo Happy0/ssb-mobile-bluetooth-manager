@@ -230,8 +230,8 @@ function makeManager (opts) {
       outgoingAddressEstablished.push(result);
 
     } else if (commandName === "disconnected") {
-      debug("Connected bluetooth devices is now: " + connectedDevices)
       connectedDevices = connectedDevices - 1;
+      debug("Connected bluetooth devices is now: " + connectedDevices);
 
     } else if (commandName === "discovered") {
       var currentTime = Date.now();
