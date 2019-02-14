@@ -48,7 +48,7 @@ function makeManager (opts) {
    * As per the android docs: https://developer.android.com/guide/topics/connectivity/bluetooth#QueryPairedDevices
    */
   const scanRefreshIntervalWhenConnected = opts.scanRefreshIntervalWhenConnected || 60000; 
-  const connectedDevices = 0;
+  let connectedDevices = 0;
 
   const EVENT_STARTED_SCAN = "startedBluetoothScan";
   const EVENT_FOUND_BLUETOOTH_DEVICES = "btDevicesFound";
