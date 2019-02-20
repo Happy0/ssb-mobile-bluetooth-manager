@@ -5,6 +5,7 @@ const pull = require('pull-stream');
 
 const Pushable = require('pull-pushable');
 const pullJson = require('pull-json-doubleline');
+const pullDefer = require('pull-defer');
 
 const zip  = require('pull-zip')
 
@@ -13,6 +14,10 @@ const uuidv4 = require('uuid/v4');
 const debug = require('debug')('ssb-mobile-bluetooth-manager');
 
 const EventEmitter = require('events');
+
+const delayedDeviceScanSource = pullDefer.source();
+
+const scanActive = false;
 
 function makeManager (opts) {
 
@@ -443,6 +448,7 @@ function makeManager (opts) {
   }
 
   function nearbyScuttlebuttDevices(refreshInterval) {
+    
     return pull(
       nearbyDevices(refreshInterval),
       pull.asyncMap( (result, cb) => {
@@ -462,7 +468,9 @@ function makeManager (opts) {
   function nearbyDevices(refreshInterval) {
 
     return pull(
-      pull.infinite(),
+      // We don't start scanning until the user has made their own device discoverable, signalling they wish
+      // to use the bluetooth functionality.
+      delayedDeviceScanSource,
       pull.asyncMap((next, cb) => {
 
         var nextScanAfter = refreshInterval;
@@ -489,6 +497,11 @@ function makeManager (opts) {
       cb(new Error("Already requesting to make device discoverable."), null)
     } else {
       awaitingDiscoverableResponse = (err, result) => {
+
+        if (!scanActive) {
+          delayedDeviceScanSource.resolve(pull.infinite());
+          scanActive = true;
+        }
 
         if (err) {
           cb(new Error(err.description), null);
