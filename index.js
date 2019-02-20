@@ -17,7 +17,7 @@ const EventEmitter = require('events');
 
 const delayedDeviceScanSource = pullDefer.source();
 
-const scanActive = false;
+let scanActive = false;
 
 function makeManager (opts) {
 
