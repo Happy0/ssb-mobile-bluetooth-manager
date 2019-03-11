@@ -116,11 +116,7 @@ function makeManager (opts) {
       var duplexConnection = toPull.duplex(stream);
 
       // Send commands to the control server
-      pull(controlSocketSource, 
-        pull.asyncMap( (item, cb) => {
-          // temporary workaround for issue with messages getting swallowed at the other side of the socket.
-          setTimeout( () => cb(null, item), 1000)
-        }),
+      pull(controlSocketSource,
         pullJson.stringify(),
         pull.map(logOutgoingCommand),
         duplexConnection.sink
