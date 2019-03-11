@@ -116,11 +116,7 @@ function makeManager (opts) {
       var duplexConnection = toPull.duplex(stream);
 
       // Send commands to the control server
-      pull(controlSocketSource, 
-        pull.asyncMap( (item, cb) => {
-          // temporary workaround for issue with messages getting swallowed at the other side of the socket.
-          setTimeout( () => cb(null, item), 1000)
-        }),
+      pull(controlSocketSource,
         pullJson.stringify(),
         pull.map(logOutgoingCommand),
         duplexConnection.sink
@@ -407,50 +403,47 @@ function makeManager (opts) {
   
     devices.forEach( (device, num) => {
   
-      // Leave some grace seconds so it's not complete spam..
-      setTimeout( () => {
-        getMetadataForDevice(device.remoteAddress, (err, res) => {
+      getMetadataForDevice(device.remoteAddress, (err, res) => {
+
+        count = count + 1;
+        debug("getValidAddresses count: " + count);
   
-          count = count + 1;
-          debug("getValidAddresses count: " + count);
-    
-          if (!err) {
-            debug(device.remoteAddress + " is available for scuttlebutt bluetooth connections");
-            device.id = res.id;
-            results.push(device);
-          }
-    
-          if (count === devices.length) {
-            debug("Calling back (get valid addresses)...");
-            debug("Valid addresses:");
-            debug(results);
+        if (!err) {
+          debug(device.remoteAddress + " is available for scuttlebutt bluetooth connections");
+          device.id = res.id;
+          results.push(device);
+        }
+  
+        if (count === devices.length) {
+          debug("Calling back (get valid addresses)...");
+          debug("Valid addresses:");
+          debug(results);
 
-            bluetoothScanStateEmitter.emit(EVENT_CHECKING_DEVICES, {
-              "checked": count,
-              "total": devices.length,
-              "discovered": results,
-              "found": results.length,
-              "remaining": (devices.length - count),
-              "lastUpdate": Date.now()
-            });
+          bluetoothScanStateEmitter.emit(EVENT_CHECKING_DEVICES, {
+            "checked": count,
+            "total": devices.length,
+            "discovered": results,
+            "found": results.length,
+            "remaining": (devices.length - count),
+            "lastUpdate": Date.now()
+          });
 
-            cb(null, {
-              "discovered": results,
-              "lastUpdate": Date.now()
-            });
-          } else {
-            bluetoothScanStateEmitter.emit(EVENT_CHECKING_DEVICES, {
-              "checked": count,
-              "total": devices.length,
-              "discovered": results,
-              "found": results.length,
-              "remaining": (devices.length - count),
-              "lastUpdate": Date.now()
-            });
-          }
-    
-        });
-      }, num * 1000);
+          cb(null, {
+            "discovered": results,
+            "lastUpdate": Date.now()
+          });
+        } else {
+          bluetoothScanStateEmitter.emit(EVENT_CHECKING_DEVICES, {
+            "checked": count,
+            "total": devices.length,
+            "discovered": results,
+            "found": results.length,
+            "remaining": (devices.length - count),
+            "lastUpdate": Date.now()
+          });
+        }
+  
+      });
     })
   }
 
