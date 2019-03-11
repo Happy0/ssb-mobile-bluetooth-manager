@@ -325,6 +325,12 @@ function makeManager (opts) {
       outgoingConnectionsEstablished.push(item);
 
     }).listen(address);
+
+    server.on('listening', () => {
+      debug("Server listening for outgoing connections. Starting control unix socket.");
+      makeControlSocket();
+    });
+
   }
 
   // For some reason, .server gets called twice...
@@ -688,7 +694,6 @@ function makeManager (opts) {
 
 
   listenForOutgoingEstablished();
-  makeControlSocket();
   makeFullyEstablishConnectionsHandler();
 
   return {
